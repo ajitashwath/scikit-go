@@ -1,2 +1,2 @@
-# scikit-go
-A machine learning toolkit for Go
+# Scikit-Go (sibling of Scikit-learn)
+
