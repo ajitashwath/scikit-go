@@ -15,6 +15,9 @@ var (
 	// ErrDimMismatch is returned when X and y have inconsistent sample counts.
 	ErrDimMismatch = errors.New("matutil: X and y have mismatched sample counts")
 
+	// ErrLengthMismatch is returned when two vectors that must have equal length differ.
+	ErrLengthMismatch = errors.New("matutil: vectors have mismatched lengths")
+
 	// ErrRaggedInput is returned when rows of X have inconsistent feature counts.
 	ErrRaggedInput = errors.New("matutil: rows of X have inconsistent lengths")
 
