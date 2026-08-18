@@ -124,7 +124,7 @@ func TestLinearRegression_NaNInput(t *testing.T) {
 
 func TestLinearRegression_PredictWrongFeatureCount(t *testing.T) {
 	model := NewLinearRegression()
-	X := [][]float64{{1.0, 2.0}, {3.0, 4.0}, {5.0, 6.0}}
+	X := [][]float64{{1.0, 2.0}, {2.0, 3.0}, {3.0, 5.0}}
 	y := []float64{1.0, 2.0, 3.0}
 	if err := model.Fit(X, y); err != nil {
 		t.Fatalf("Fit failed: %v", err)
