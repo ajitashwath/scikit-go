@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"scikit-go/internal/matutil"
+	"scikit-go/metrics"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -96,32 +97,11 @@ func (lr *LinearRegression) Score(X [][]float64, y []float64) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if len(preds) != len(y) {
-		return 0, fmt.Errorf("LinearRegression.Score: predictions and y length mismatch")
+	r2, err := metrics.R2Score(y, preds)
+	if err != nil {
+		return 0, fmt.Errorf("LinearRegression.Score: %w", err)
 	}
-
-	var mean float64
-	for _, v := range y {
-		mean += v
-	}
-	mean /= float64(len(y))
-
-	var ssRes, ssTot float64
-	for i := range y {
-		diff := y[i] - preds[i]
-		ssRes += diff * diff
-		diffMean := y[i] - mean
-		ssTot += diffMean * diffMean
-	}
-
-	if ssTot == 0 {
-		if ssRes == 0 {
-			return 1.0, nil
-		}
-		return 0.0, nil
-	}
-
-	return 1.0 - ssRes/ssTot, nil
+	return r2, nil
 }
 
 // linearRegressionGob is the on-disk representation used by Save/Load.
