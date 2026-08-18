@@ -135,6 +135,45 @@ func TestLinearRegression_PredictWrongFeatureCount(t *testing.T) {
 	}
 }
 
+func TestLinearRegression_ScoreConstantTargets(t *testing.T) {
+	// On constant targets R2 follows sklearn's edge rules (ssTot == 0): predictions
+	// not bitwise equal to the constant score 0.0, perfect predictions score 1.0.
+	// This guards the Score delegation to metrics.R2Score.
+	model := NewLinearRegression()
+	X := [][]float64{{1.0}, {2.0}, {3.0}}
+	constY := []float64{5.0, 5.0, 5.0}
+	if err := model.Fit(X, constY); err != nil {
+		t.Fatalf("Fit failed: %v", err)
+	}
+
+	// QR lstsq returns intercept/coef with tiny floating-point residuals, so
+	// predictions are never bitwise equal to the constant -> sklearn scores 0.0.
+	r2, err := model.Score(X, constY)
+	if err != nil {
+		t.Fatalf("Score failed: %v", err)
+	}
+	if r2 != 0.0 {
+		t.Errorf("constant-target fit: got %v, want 0.0", r2)
+	}
+}
+
+func TestLinearRegression_ScoreExactFit(t *testing.T) {
+	// y = 2x + 1 is reproduced exactly, so R2 is ~1.0.
+	model := NewLinearRegression()
+	X := [][]float64{{1.0}, {2.0}, {3.0}, {4.0}, {5.0}}
+	y := []float64{3.0, 5.0, 7.0, 9.0, 11.0}
+	if err := model.Fit(X, y); err != nil {
+		t.Fatalf("Fit failed: %v", err)
+	}
+	r2, err := model.Score(X, y)
+	if err != nil {
+		t.Fatalf("Score failed: %v", err)
+	}
+	if math.Abs(r2-1.0) > 1e-10 {
+		t.Errorf("exact-fit R2: got %v, want ~1.0", r2)
+	}
+}
+
 func TestLinearRegression_SaveLoadRoundTrip(t *testing.T) {
 	model := NewLinearRegression()
 	X := [][]float64{{1.0}, {2.0}, {3.0}, {4.0}, {5.0}}
