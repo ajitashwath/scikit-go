@@ -1,8 +1,6 @@
 package tree
 
 import (
-	"container/heap"
-	"fmt"
 	"math"
 	"sort"
 )
@@ -93,7 +91,7 @@ func (sp *splitter) sortByFeature(samples []int, feature int) featureSorted {
 	for i := range order {
 		order[i] = i
 	}
-	sort.Slice(order, func(a, b int) bool { return fs.values[a] < fs.values[b] })
+	sort.Slice(order, func(a, b int) bool { return fs.values[order[a]] < fs.values[order[b]] })
 	vals := make([]float32, n)
 	idx := make([]int, n)
 	for i, o := range order {
@@ -108,7 +106,7 @@ func (sp *splitter) sortByFeature(samples []int, feature int) featureSorted {
 // nodeSplit finds the best split over the node's samples, mirroring sklearn's
 // best_split loop including the constant-feature handling and the persistent
 // features array.
-func (sp *splitter) nodeSplit(samples []int, parentImpurity float64, nKnownConstants int) splitRecord {
+func (sp *splitter) nodeSplit(samples []int, parentImpurity float64, nKnownConstants int, sums nodeSums) splitRecord {
 	n := len(samples)
 	features := sp.features
 	constantFeatures := sp.constantFeatures
@@ -148,13 +146,10 @@ func (sp *splitter) nodeSplit(samples []int, parentImpurity float64, nKnownConst
 		fi--
 		features[fi], features[fj] = features[fj], features[fi]
 
-		cand := sp.scanFeature(fs, feature, parentImpurity)
+		cand := sp.scanFeature(fs, feature, parentImpurity, sums)
 		if cand.valid && cand.proxy > bestProxy {
 			bestProxy = cand.proxy
 			best = cand
-		}
-		if cand.valid && n == sp.nTotal {
-			fmt.Printf("  debug: feature %d bestProxy=%.12f pos=%d threshold=%.8f\n", feature, cand.proxy, cand.pos, cand.threshold)
 		}
 	}
 
@@ -165,12 +160,24 @@ func (sp *splitter) nodeSplit(samples []int, parentImpurity float64, nKnownConst
 	return best
 }
 
+// nodeSums computes sum_total/sq_sum_total over samples in the given order,
+// mirroring sklearn's RegressionCriterion.init for the MSE criterion.
+func (sp *splitter) nodeSums(samples []int) nodeSums {
+	var sumTotal, sqSumTotal float64
+	for _, si := range samples {
+		v := sp.y[si]
+		sumTotal += v
+		sqSumTotal += v * v
+	}
+	return nodeSums{sumTotal: sumTotal, sqSumTotal: sqSumTotal, initialized: true}
+}
+
 // scanFeature evaluates all valid split positions of one feature and returns the
 // best candidate together with its children impurities and improvement.
-func (sp *splitter) scanFeature(fs featureSorted, feature int, parentImpurity float64) splitRecord {
+func (sp *splitter) scanFeature(fs featureSorted, feature int, parentImpurity float64, sums nodeSums) splitRecord {
 	switch sp.criterion {
 	case criterionMSE:
-		return sp.scanMSE(fs, feature, parentImpurity)
+		return sp.scanMSE(fs, feature, parentImpurity, sums)
 	case criterionMAE:
 		return sp.scanMAE(fs, feature, parentImpurity)
 	default:
@@ -180,14 +187,12 @@ func (sp *splitter) scanFeature(fs featureSorted, feature int, parentImpurity fl
 
 // scanMSE mirrors the MSE criterion: proxy = sum_L^2/n_L + sum_R^2/n_R (maximize),
 // children impurity = sq_sum/n - (sum/n)^2, with sklearn's update direction logic.
-func (sp *splitter) scanMSE(fs featureSorted, feature int, parentImpurity float64) splitRecord {
+// sum_total/sq_sum_total are the per-node sums computed over the node's initial
+// sample order (shared by all features, as sklearn's init computes them once).
+func (sp *splitter) scanMSE(fs featureSorted, feature int, parentImpurity float64, sums nodeSums) splitRecord {
 	n := len(fs.values)
-	var sumTotal, sqSumTotal float64
-	for _, si := range fs.indices {
-		v := sp.y[si]
-		sumTotal += v
-		sqSumTotal += v * v
-	}
+	sumTotal := sums.sumTotal
+	sqSumTotal := sums.sqSumTotal
 	bestProxy := math.Inf(-1)
 	bestPos := -1
 	pos := 0
@@ -325,14 +330,24 @@ func (sp *splitter) classImpurity(counts []float64, nn float64) float64 {
 	}
 }
 
-// scanMAE mirrors the MAE criterion: proxy = -(AE_left + AE_right) with absolute
-// errors computed via the statistical (weighted) median.
+// scanMAE mirrors sklearn's MAE criterion: absolute errors are precomputed via a
+// weighted Fenwick tree over the node's samples sorted by the current feature
+// (forward pass for left prefixes, backward pass for right suffixes), and the
+// proxy is -n_R*(AE_R/n_R) - n_L*(AE_L/n_L) computed with sklearn's float
+// arithmetic to keep last-ulp ties identical.
 func (sp *splitter) scanMAE(fs featureSorted, feature int, parentImpurity float64) splitRecord {
 	n := len(fs.values)
+	ys := make([]float64, n)
+	for i, si := range fs.indices {
+		ys[i] = sp.y[si]
+	}
+	sortedY, ranks := computeRanks(ys)
+	tree := newWeightedFenwick(n)
 	leftAE := make([]float64, n)
 	rightAE := make([]float64, n)
-	sp.computePrefixAE(fs.indices, leftAE)
-	sp.computeSuffixAE(fs.indices, rightAE)
+	precomputeAbsoluteErrors(sortedY, ranks, fs.indices, tree, 0, n, leftAE)
+	precomputeAbsoluteErrors(sortedY, ranks, fs.indices, tree, n-1, -1, rightAE)
+
 	bestProxy := math.Inf(-1)
 	bestPos := -1
 	for i := 0; i < n-1; i++ {
@@ -344,7 +359,7 @@ func (sp *splitter) scanMAE(fs featureSorted, feature int, parentImpurity float6
 		if nL < sp.minSamplesLeaf || nR < sp.minSamplesLeaf {
 			continue
 		}
-		proxy := -(leftAE[i] + rightAE[p])
+		proxy := -float64(nR)*(rightAE[p]/float64(nR)) - float64(nL)*(leftAE[i]/float64(nL))
 		if proxy > bestProxy {
 			bestProxy = proxy
 			bestPos = p
@@ -353,8 +368,9 @@ func (sp *splitter) scanMAE(fs featureSorted, feature int, parentImpurity float6
 	if bestPos < 0 {
 		return splitRecord{}
 	}
-	impL := leftAE[bestPos-1] / float64(bestPos)
-	impR := rightAE[bestPos] / float64(n-bestPos)
+	nL, nR := bestPos, n-bestPos
+	impL := leftAE[bestPos-1] / float64(nL)
+	impR := rightAE[bestPos] / float64(nR)
 	return sp.makeRecord(fs, feature, parentImpurity, bestPos, bestProxy, impL, impR)
 }
 
@@ -376,91 +392,4 @@ func (sp *splitter) makeRecord(fs featureSorted, feature int, parentImpurity flo
 		impurityRight: impR,
 		valid:         true,
 	}
-}
-
-// computePrefixAE fills out[i] with the mean-absolute-error sum (|y - median|)
-// of fs.indices[0:i+1] using sklearn's weighted-median convention.
-func (sp *splitter) computePrefixAE(indices []int, out []float64) {
-	var left maxHeap
-	var right minHeap
-	heap.Init(&left)
-	heap.Init(&right)
-	var sumL, sumR float64
-	for i, si := range indices {
-		v := sp.y[si]
-		if left.Len() == 0 || v <= left.Top() {
-			heap.Push(&left, v)
-			sumL += v
-		} else {
-			heap.Push(&right, v)
-			sumR += v
-		}
-		if left.Len() > right.Len()+1 {
-			m := heap.Pop(&left).(float64)
-			heap.Push(&right, m)
-			sumL -= m
-			sumR += m
-		} else if right.Len() > left.Len() {
-			m := heap.Pop(&right).(float64)
-			heap.Push(&left, m)
-			sumR -= m
-			sumL += m
-		}
-		out[i] = absError(left, right, sumL, sumR)
-	}
-}
-
-// computeSuffixAE fills out[i] with the mean-absolute-error sum of fs.indices[i:n].
-func (sp *splitter) computeSuffixAE(indices []int, out []float64) {
-	n := len(indices)
-	var left maxHeap
-	var right minHeap
-	heap.Init(&left)
-	heap.Init(&right)
-	var sumL, sumR float64
-	for i := n - 1; i >= 0; i-- {
-		v := sp.y[indices[i]]
-		if left.Len() == 0 || v <= left.Top() {
-			heap.Push(&left, v)
-			sumL += v
-		} else {
-			heap.Push(&right, v)
-			sumR += v
-		}
-		if left.Len() > right.Len()+1 {
-			m := heap.Pop(&left).(float64)
-			heap.Push(&right, m)
-			sumL -= m
-			sumR += m
-		} else if right.Len() > left.Len() {
-			m := heap.Pop(&right).(float64)
-			heap.Push(&left, m)
-			sumR -= m
-			sumL += m
-		}
-		out[i] = absError(left, right, sumL, sumR)
-	}
-}
-
-// absError mirrors sklearn's pinball-loss identity for the absolute error of the
-// current median set: AE = (wy_R - med*w_R) + (med*w_L - wy_L).
-func absError(left maxHeap, right minHeap, sumL, sumR float64) float64 {
-	k := left.Len() + right.Len()
-	var med, wL, wyL float64
-	if right.Len() == 0 {
-		med = left.Top()
-		wL = 0
-		wyL = 0
-	} else if left.Len() > right.Len() {
-		med = left.Top()
-		wL = float64(left.Len() - 1)
-		wyL = sumL - med
-	} else {
-		med = (left.Top() + right.Top()) / 2
-		wL = float64(left.Len())
-		wyL = sumL
-	}
-	wR := float64(k) - wL
-	wyR := (sumL + sumR) - wyL
-	return (wyR - med*wR) + (med*wL - wyL)
 }
