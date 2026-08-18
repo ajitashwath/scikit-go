@@ -27,6 +27,18 @@ type ContextEstimator interface {
 	FitContext(ctx context.Context, X [][]float64, y []float64) error
 }
 
+// Classifier is satisfied by estimators that produce per-class probability estimates.
+type Classifier interface {
+	PredictProba(X [][]float64) ([][]float64, error)
+}
+
+// Clusterer is satisfied by clustering estimators that can label data and expose
+// the labels assigned during Fit.
+type Clusterer interface {
+	FitPredict(X [][]float64) ([]float64, error)
+	Labels() []float64
+}
+
 // Saver is satisfied by estimators that support binary serialization
 type Saver interface {
 	Save(path string) error
