@@ -79,14 +79,17 @@ func buildTree(X [][]float64, y []float64, classes []float64, yClass []int, para
 		yClass:  yClass,
 	}
 	rootImpurity := b.nodeImpurity(samples)
-	t.root = b.build(samples, 0, rootImpurity, 0)
+	t.root = b.build(samples, 0, rootImpurity, 0, b.nodeSumsMSE(samples))
 	return t
 }
 
 // build recursively grows the tree over the given sample indices and returns the
-// node index. impurity is the node's impurity (root: node_impurity; children: the
-// parent's split children impurity), matching sklearn's parent_record.impurity.
-func (b *treeBuilder) build(samples []int, depth int, impurity float64, nConstants int) int {
+// node index. impurity is the node's stored impurity: node_impurity for the root,
+// and the parent split's children impurity for children, matching sklearn's
+// parent_record.impurity. nodeSums carries the per-node sum_total/sq_sum_total
+// (sklearn computes them once per node over the node's initial sample order and
+// shares them across all feature scans).
+func (b *treeBuilder) build(samples []int, depth int, impurity float64, nConstants int, sums nodeSums) int {
 	n := len(samples)
 	node := treeNode{
 		Left:     -1,
@@ -106,7 +109,7 @@ func (b *treeBuilder) build(samples []int, depth int, impurity float64, nConstan
 		return nodeIdx
 	}
 
-	rec := b.sp.nodeSplit(samples, impurity, nConstants)
+	rec := b.sp.nodeSplit(samples, impurity, nConstants, sums)
 	if !rec.valid || rec.pos >= n || rec.improvement+epsilon < 0 {
 		return nodeIdx
 	}
@@ -122,11 +125,40 @@ func (b *treeBuilder) build(samples []int, depth int, impurity float64, nConstan
 		}
 	}
 
-	b.t.nodes[nodeIdx].Left = b.build(left, depth+1, rec.impurityLeft, rec.nConstants)
-	b.t.nodes[nodeIdx].Right = b.build(right, depth+1, rec.impurityRight, rec.nConstants)
+	b.t.nodes[nodeIdx].Left = b.build(left, depth+1, rec.impurityLeft, rec.nConstants, b.childSums(left))
+	b.t.nodes[nodeIdx].Right = b.build(right, depth+1, rec.impurityRight, rec.nConstants, b.childSums(right))
 	b.t.nodes[nodeIdx].Feature = rec.feature
 	b.t.nodes[nodeIdx].Threshold = rec.threshold
 	return nodeIdx
+}
+
+// nodeSums holds the per-node sum_total and sq_sum_total for the MSE criterion,
+// computed once over the node's initial sample order.
+type nodeSums struct {
+	sumTotal    float64
+	sqSumTotal  float64
+	initialized bool
+}
+
+// childSums returns the per-node MSE sums for the given child samples, or an
+// uninitialized value for non-MSE criteria (which ignore them).
+func (b *treeBuilder) childSums(samples []int) nodeSums {
+	if b.t.params.criterion != criterionMSE {
+		return nodeSums{}
+	}
+	return b.nodeSumsMSE(samples)
+}
+
+// nodeSumsMSE accumulates sum_total/sq_sum_total over samples in the given order,
+// mirroring sklearn's RegressionCriterion.init.
+func (b *treeBuilder) nodeSumsMSE(samples []int) nodeSums {
+	var sumTotal, sqSumTotal float64
+	for _, si := range samples {
+		v := b.y[si]
+		sumTotal += v
+		sqSumTotal += v * v
+	}
+	return nodeSums{sumTotal: sumTotal, sqSumTotal: sqSumTotal, initialized: true}
 }
 
 // nodeValue returns the leaf prediction (node value) of a set of samples,
@@ -173,8 +205,14 @@ func (b *treeBuilder) nodeImpurity(samples []int) float64 {
 		nf := float64(len(samples))
 		return sqSum/nf - (sum/nf)*(sum/nf)
 	case criterionMAE:
+		ys := make([]float64, len(samples))
+		for i, si := range samples {
+			ys[i] = b.y[si]
+		}
+		sortedY, ranks := computeRanks(ys)
+		tree := newWeightedFenwick(len(samples))
 		out := make([]float64, len(samples))
-		b.sp.computeSuffixAE(samples, out)
+		precomputeAbsoluteErrors(sortedY, ranks, samples, tree, len(samples)-1, -1, out)
 		return out[0] / float64(len(samples))
 	default:
 		counts := make([]float64, len(b.classes))
@@ -197,38 +235,6 @@ func medianStatistical(vals []float64) float64 {
 	return (sorted[n/2-1] + sorted[n/2]) / 2
 }
 
-// maxHeap is a max-heap of float64 (implemented as a negated min-heap).
-type maxHeap []float64
-
-func (h maxHeap) Len() int            { return len(h) }
-func (h maxHeap) Less(i, j int) bool  { return h[i] > h[j] }
-func (h maxHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
-func (h *maxHeap) Push(x interface{}) { *h = append(*h, x.(float64)) }
-func (h *maxHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	v := old[n-1]
-	*h = old[:n-1]
-	return v
-}
-func (h maxHeap) Top() float64 { return h[0] }
-
-// minHeap is a min-heap of float64.
-type minHeap []float64
-
-func (h minHeap) Len() int            { return len(h) }
-func (h minHeap) Less(i, j int) bool  { return h[i] < h[j] }
-func (h minHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
-func (h *minHeap) Push(x interface{}) { *h = append(*h, x.(float64)) }
-func (h *minHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	v := old[n-1]
-	*h = old[:n-1]
-	return v
-}
-func (h minHeap) Top() float64 { return h[0] }
-
 // ErrInvalidCriterion is returned for unsupported criterion strings.
 var ErrInvalidCriterion = errors.New("tree: unsupported criterion")
 
@@ -250,8 +256,8 @@ func (t *treeImpl) predictValue(row []float64) []float64 {
 // A single-node tree yields all zeros.
 func (t *treeImpl) featureImportances() []float64 {
 	imp := make([]float64, t.nFeatures)
-	total := float64(t.nodes[t.root].NSamples)
-	if total == 0 {
+	rootN := float64(t.nodes[t.root].NSamples)
+	if rootN == 0 {
 		return imp
 	}
 	for i := range t.nodes {
@@ -261,10 +267,15 @@ func (t *treeImpl) featureImportances() []float64 {
 		}
 		left := &t.nodes[node.Left]
 		right := &t.nodes[node.Right]
-		gain := (float64(node.NSamples)/total)*node.Impurity -
-			(float64(left.NSamples)/total)*left.Impurity -
-			(float64(right.NSamples)/total)*right.Impurity
+		// Mirror sklearn's accumulation order: n*impurity summed without dividing
+		// by the root sample count until the end (matches float rounding).
+		gain := float64(node.NSamples)*node.Impurity -
+			float64(left.NSamples)*left.Impurity -
+			float64(right.NSamples)*right.Impurity
 		imp[node.Feature] += gain
+	}
+	for j := range imp {
+		imp[j] /= rootN
 	}
 	var sum float64
 	for _, v := range imp {
