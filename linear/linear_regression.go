@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"scikit-go/internal/matutil"
+
 	"gonum.org/v1/gonum/mat"
 )
 
