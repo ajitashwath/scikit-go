@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math"
 	"os"
+
 	"scikit-go/internal/matutil"
 
-	"github.com/ajitashwath/scikit-go/core"
-	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"scikit-go/core"
 )
 
 // Compile-time check that StandardScaler satisfies core.Transformer
@@ -117,7 +117,7 @@ func (s *StandardScaler) FitTransform(X [][]float64) ([][]float64, error) {
 	if err := s.Fit(X); err != nil {
 		return nil, err
 	}
-	return s.Transform(x)
+	return s.Transform(X)
 }
 
 // InverseTransform reverses the scaling
