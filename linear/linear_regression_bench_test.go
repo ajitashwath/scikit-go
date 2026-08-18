@@ -9,10 +9,10 @@ import (
 // Benchmark Fit/Predict at various scales.
 func randomDataset(nSamples, nFeatures int, seed int64) ([][]float64, []float64) {
 	r := rand.New(rand.NewSource(seed))
-	X := make([][]float64, nFeatures)
+	X := make([][]float64, nSamples)
 	trueCoef := make([]float64, nFeatures)
 	for j := range trueCoef {
-		trueCoef[j] = rand.NormFloat64()
+		trueCoef[j] = r.NormFloat64()
 	}
 	y := make([]float64, nSamples)
 	for i := 0; i < nSamples; i++ {
@@ -34,7 +34,7 @@ func benchmarkFit(b *testing.B, nSamples, nFeatures int) {
 	for i := 0; i < b.N; i++ {
 		model := NewLinearRegression()
 		if err := model.Fit(X, y); err != nil {
-			b.Fatalf("Fit failed: %w", err)
+			b.Fatalf("Fit failed: %v", err)
 		}
 	}
 }
@@ -47,12 +47,12 @@ func benchmarkPredict(b *testing.B, nSamples, nFeatures int) {
 	X, y := randomDataset(nSamples, nFeatures, 42)
 	model := NewLinearRegression()
 	if err := model.Fit(X, y); err != nil {
-		b.Fatalf("Fit failed: %w", err)
+		b.Fatalf("Fit failed: %v", err)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if _, err := model.Predict(X); err != nil {
-			b.Fatalf("Predict failed: %w", err)
+			b.Fatalf("Predict failed: %v", err)
 		}
 	}
 }
