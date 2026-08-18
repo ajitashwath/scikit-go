@@ -24,7 +24,7 @@ type Transformer interface {
 // ContextEstimator is an optional extension for long-running training that supports cancellation and deadlines
 // Estimators implement this in addition to Estimator when their Fit is expensive enough to warrant it
 type ContextEstimator interface {
-	FitContent(ctx context.Context, X [][]float64, y []float64) error
+	FitContext(ctx context.Context, X [][]float64, y []float64) error
 }
 
 // Saver is satisfied by estimators that support binary serialization
