@@ -65,22 +65,11 @@ func ValidateXy(X [][]float64, y []float64) error {
 	if len(X) != len(y) {
 		return fmt.Errorf("%w: X has %d samples, y has %d", ErrDimMismatch, len(X), len(y))
 	}
-	p := len(X[0])
-	if p == 0 {
-		return ErrEmptyInput
-	}
-	for i, row := range X {
-		if len(row) != p {
-			return fmt.Errorf("%w: Row 0 has %d features, row %d has %d", ErrRaggedInput, p, i, len(row))
-		}
+	if err := validateXMatrix(X); err != nil {
+		return err
 	}
 	if err := checkFinite(y); err != nil {
 		return err
-	}
-	for _, row := range X {
-		if err := checkFinite(row); err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -93,6 +82,31 @@ func ValidateX(X [][]float64, nFeatures int) error {
 	for i, row := range X {
 		if len(row) != nFeatures {
 			return fmt.Errorf("%w: Expected %d features (from training), Row %d has %d", ErrDimMismatch, nFeatures, i, len(row))
+		}
+		if err := checkFinite(row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateXMatrix validates a sample matrix X without a target vector, for
+// estimators such as KMeans and PCA whose Fit accepts y=None.
+func ValidateXMatrix(X [][]float64) error {
+	if len(X) == 0 {
+		return ErrEmptyInput
+	}
+	return validateXMatrix(X)
+}
+
+func validateXMatrix(X [][]float64) error {
+	p := len(X[0])
+	if p == 0 {
+		return ErrEmptyInput
+	}
+	for i, row := range X {
+		if len(row) != p {
+			return fmt.Errorf("%w: Row 0 has %d features, row %d has %d", ErrRaggedInput, p, i, len(row))
 		}
 		if err := checkFinite(row); err != nil {
 			return err
