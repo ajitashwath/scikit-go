@@ -14,59 +14,117 @@ import (
 
 // LinearRegression fits an ordinary least squares linear model
 // y = X @ coef + intercept
-
-// Implemented via QR decomposition of the design matrix
-// X augmented with an intercept column, matching scikit-learn's default implementation
-// scipy.linalg.lstsq
+//
+// It mirrors sklearn.linear_model.LinearRegression: the data are centered, and
+// the coefficients are the minimum-norm least-squares solution computed from the
+// SVD of the centered matrix, as scipy.linalg.lstsq does. That makes the fit
+// well defined for constant or collinear columns and for more features than
+// samples, where an ordinary QR solve fails.
+//
+// Tol is the cutoff for "small" singular values: those at most Tol times the
+// largest are treated as zero when determining the effective rank. NewLinearRegression
+// sets sklearn's default of 1e-6; Tol == 0 uses machine precision instead.
 type LinearRegression struct {
 	Coef      []float64
 	Intercept float64
+	Tol       float64
 
 	nFeatures int
+	rank      int
 	fitted    bool
 }
 
 // NewLinearRegression returns an unfitted LinearRegression estimator
 func NewLinearRegression() *LinearRegression {
-	return &LinearRegression{}
+	return &LinearRegression{Tol: 1e-6}
 }
 
-// Fit computes the least-square solution for coef and intercept
+// Fit computes the minimum-norm least-squares solution for coef and intercept.
 func (lr *LinearRegression) Fit(X [][]float64, y []float64) error {
 	if err := matutil.ValidateXy(X, y); err != nil {
 		return fmt.Errorf("LinearRegression.Fit: %w", err)
 	}
+	if !(lr.Tol >= 0) { // also rejects NaN
+		return fmt.Errorf("LinearRegression.Fit: tol must be >= 0, got %v", lr.Tol)
+	}
 	n := len(X)
 	p := len(X[0])
 
-	// Augmented design matrix [X | 1] so intercept is solved for directly as one more coefficient
-	// Rather than centering data manually
-	augmented := mat.NewDense(n, p+1, nil)
+	// Center X and y so the intercept drops out of the least-squares problem.
+	xMean := make([]float64, p)
+	var yMean float64
 	for i := 0; i < n; i++ {
 		for j := 0; j < p; j++ {
-			augmented.Set(i, j, X[i][j])
+			xMean[j] += X[i][j]
 		}
-		augmented.Set(i, p, 1.0)
+		yMean += y[i]
+	}
+	for j := range xMean {
+		xMean[j] /= float64(n)
+	}
+	yMean /= float64(n)
+
+	xc := mat.NewDense(n, p, nil)
+	yc := mat.NewVecDense(n, nil)
+	for i := 0; i < n; i++ {
+		for j := 0; j < p; j++ {
+			xc.Set(i, j, X[i][j]-xMean[j])
+		}
+		yc.SetVec(i, y[i]-yMean)
 	}
 
-	yVec := mat.NewVecDense(n, y)
-	var qr mat.QR
-	qr.Factorize(augmented)
-
-	var solution mat.Dense
-	if err := qr.SolveTo(&solution, false, yVec); err != nil {
-		return fmt.Errorf("LinearRegression.Fit : QR solve failed: %w", err)
+	var svd mat.SVD
+	if ok := svd.Factorize(xc, mat.SVDThin); !ok {
+		return fmt.Errorf("LinearRegression.Fit: SVD failed to converge")
 	}
+	sv := svd.Values(nil) // descending
+	var u, v mat.Dense
+	svd.UTo(&u)
+	svd.VTo(&v)
 
+	cond := lr.Tol
+	if cond == 0 {
+		cond = 2.220446049250313e-16
+	}
+	cutoff := cond * sv[0]
+
+	// coef = V * diag(1/s) * U' * yc, over singular values above the cutoff.
 	coef := make([]float64, p)
+	rank := 0
+	for k, s := range sv {
+		if s <= cutoff {
+			continue
+		}
+		rank++
+		var proj float64
+		for i := 0; i < n; i++ {
+			proj += u.At(i, k) * yc.AtVec(i)
+		}
+		proj /= s
+		for j := 0; j < p; j++ {
+			coef[j] += proj * v.At(j, k)
+		}
+	}
+
+	intercept := yMean
 	for j := 0; j < p; j++ {
-		coef[j] = solution.At(j, 0)
+		intercept -= xMean[j] * coef[j]
 	}
 	lr.Coef = coef
-	lr.Intercept = solution.At(p, 0)
+	lr.Intercept = intercept
 	lr.nFeatures = p
+	lr.rank = rank
 	lr.fitted = true
 	return nil
+}
+
+// Rank returns the effective rank of the centered design matrix found at Fit
+// time (sklearn's rank_), or 0 before Fit.
+func (lr *LinearRegression) Rank() int {
+	if !lr.fitted {
+		return 0
+	}
+	return lr.rank
 }
 
 // Predict returns predictions for each row of X using the fitted coefficient and intercupt
@@ -112,6 +170,8 @@ type linearRegressionGob struct {
 	Coef      []float64
 	Intercept float64
 	NFeatures int
+	Tol       float64 // added after version 1 shipped; gob leaves it zero in older files
+	Rank      int
 }
 
 const linearRegressionFormatVersion = 1
@@ -132,6 +192,8 @@ func (lr *LinearRegression) Save(path string) error {
 		Coef:      lr.Coef,
 		Intercept: lr.Intercept,
 		NFeatures: lr.nFeatures,
+		Tol:       lr.Tol,
+		Rank:      lr.rank,
 	}
 
 	if err := gob.NewEncoder(f).Encode(payload); err != nil {
@@ -155,11 +217,17 @@ func LoadLinearRegression(path string) (*LinearRegression, error) {
 	if payload.Version != linearRegressionFormatVersion {
 		return nil, fmt.Errorf("LoadLinearRegression: Unsupported format version %d (expected %d)", payload.Version, linearRegressionFormatVersion)
 	}
+	if payload.NFeatures < 1 || len(payload.Coef) != payload.NFeatures {
+		return nil, fmt.Errorf("LoadLinearRegression: corrupt payload: %d coefficients for %d features",
+			len(payload.Coef), payload.NFeatures)
+	}
 
 	return &LinearRegression{
 		Coef:      payload.Coef,
 		Intercept: payload.Intercept,
+		Tol:       payload.Tol,
 		nFeatures: payload.NFeatures,
+		rank:      payload.Rank,
 		fitted:    true,
 	}, nil
 }

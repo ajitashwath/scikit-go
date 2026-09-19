@@ -26,9 +26,15 @@ type knnGob struct {
 
 const knnFormatVersion = 1
 
-func knnParamsFrom(nNeighbors int, weights string, p float64) (knnParams, error) {
+// knnParamsFrom validates the hyperparameters against the training set size:
+// asking for more neighbors than there are training samples is rejected here
+// rather than surfacing as an index panic inside Predict.
+func knnParamsFrom(nNeighbors int, weights string, p float64, nSamples int) (knnParams, error) {
 	if nNeighbors < 1 {
 		return knnParams{}, fmt.Errorf("%w: n_neighbors must be >= 1, got %d", ErrInvalidKNN, nNeighbors)
+	}
+	if nNeighbors > nSamples {
+		return knnParams{}, fmt.Errorf("%w: n_neighbors=%d exceeds n_samples=%d", ErrInvalidKNN, nNeighbors, nSamples)
 	}
 	if weights != "uniform" && weights != "distance" {
 		return knnParams{}, fmt.Errorf("%w: unsupported weights %q", ErrInvalidKNN, weights)
@@ -92,7 +98,17 @@ func loadKNN(path, name, kind string) (*knnModel, error) {
 	if payload.Kind != kind {
 		return nil, fmt.Errorf("Load%s: file contains a %s, not a %s", name, payload.Kind, kind)
 	}
-	params, err := knnParamsFrom(payload.NNeighbors, payload.Weights, payload.P)
+	if payload.NFeatures < 1 || len(payload.X) < 1 || len(payload.Y) != len(payload.X) {
+		return nil, fmt.Errorf("Load%s: corrupt payload: %d samples, %d targets, %d features",
+			name, len(payload.X), len(payload.Y), payload.NFeatures)
+	}
+	for i, row := range payload.X {
+		if len(row) != payload.NFeatures {
+			return nil, fmt.Errorf("Load%s: corrupt payload: row %d has %d features, want %d",
+				name, i, len(row), payload.NFeatures)
+		}
+	}
+	params, err := knnParamsFrom(payload.NNeighbors, payload.Weights, payload.P, len(payload.X))
 	if err != nil {
 		return nil, fmt.Errorf("Load%s: %w", name, err)
 	}

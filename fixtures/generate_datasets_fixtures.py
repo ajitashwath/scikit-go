@@ -48,7 +48,7 @@ datasets_fixtures = {
     },
 }
 
-with open(os.path.join(HERE, "datasets_fixtures.json"), "w") as f:
+with open(os.path.join(TESTDATA, "datasets_fixtures.json"), "w") as f:
     json.dump(datasets_fixtures, f, indent=2)
 
 # ---------------------------------------------------------------------------
@@ -59,10 +59,10 @@ moons_fixtures = {
     "X": X_moons.tolist(),
     "y": y_moons.tolist(),
 }
-with open(os.path.join(HERE, "moons_fixtures.json"), "w") as f:
+with open(os.path.join(TESTDATA, "moons_fixtures.json"), "w") as f:
     json.dump(moons_fixtures, f, indent=2)
 
 print("diabetes/iris CSVs written to", TESTDATA)
-print("datasets_fixtures.json and moons_fixtures.json written to", HERE)
+print("datasets_fixtures.json and moons_fixtures.json written to", TESTDATA)
 print("diabetes shape:", diabetes.data.shape)
 print("iris shape:", iris.data.shape)

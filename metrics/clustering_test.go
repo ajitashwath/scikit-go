@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"math"
 	"testing"
 )
@@ -81,29 +82,36 @@ func fixtureMatrix(t *testing.T, fx map[string]interface{}, key string) [][]floa
 	return out
 }
 
-func TestSilhouette_Degenerate(t *testing.T) {
+// sklearn requires 2 <= n_labels <= n_samples-1 and raises otherwise.
+func TestSilhouette_InvalidClusterCount(t *testing.T) {
 	X := [][]float64{{1, 2}, {3, 4}}
+	cases := map[string]struct {
+		X      [][]float64
+		labels []float64
+	}{
+		"single cluster":        {X, []float64{0, 0}},
+		"as many as samples":    {X, []float64{0, 1}},
+		"single sample":         {[][]float64{{1, 2}}, []float64{0}},
+		"singleton per cluster": {[][]float64{{0}, {1}, {2}}, []float64{5, 6, 7}},
+	}
+	for name, tc := range cases {
+		if _, err := SilhouetteScore(tc.X, tc.labels); !errors.Is(err, ErrInvalidClusterCount) {
+			t.Errorf("%s: got %v, want ErrInvalidClusterCount", name, err)
+		}
+	}
+}
 
-	// Single cluster: sklearn scores all-zero silhouettes.
-	s, err := SilhouetteScore(X, []float64{0, 0})
+// Singleton clusters are valid as long as another cluster has several members;
+// they contribute a silhouette of 0.
+func TestSilhouette_SingletonClusterScoresZero(t *testing.T) {
+	X := [][]float64{{0}, {1}, {10}}
+	got, err := SilhouetteScore(X, []float64{0, 0, 1})
 	if err != nil {
 		t.Fatalf("SilhouetteScore: %v", err)
 	}
-	assertClose(t, "single cluster", s, 0.0)
-
-	// Each sample its own cluster: all-zero silhouettes.
-	s, err = SilhouetteScore(X, []float64{0, 1})
-	if err != nil {
-		t.Fatalf("SilhouetteScore: %v", err)
-	}
-	assertClose(t, "singleton clusters", s, 0.0)
-
-	// Single sample.
-	s, err = SilhouetteScore([][]float64{{1, 2}}, []float64{0})
-	if err != nil {
-		t.Fatalf("SilhouetteScore: %v", err)
-	}
-	assertClose(t, "single sample", s, 0.0)
+	// Samples 0 and 1: a = 1, b = (10-0 or 10-1); the singleton {10} scores 0.
+	want := ((10.0-1)/10.0 + (9.0-1)/9.0) / 3
+	assertClose(t, "mean silhouette", got, want)
 }
 
 func TestSilhouette_Validation(t *testing.T) {

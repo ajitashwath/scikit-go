@@ -57,9 +57,13 @@ func MaxError(yTrue, yPred []float64) (float64, error) {
 // R2Score returns the coefficient of determination, matching
 // sklearn.metrics.r2_score (including the ssTot == 0 edge cases: a perfect fit
 // on constant targets scores 1.0, a non-perfect fit on constant targets scores 0.0).
+// With fewer than two samples R^2 is undefined and, like sklearn, the result is NaN.
 func R2Score(yTrue, yPred []float64) (float64, error) {
 	if err := validateVectors(yTrue, yPred); err != nil {
 		return 0, err
+	}
+	if len(yTrue) < 2 {
+		return math.NaN(), nil
 	}
 	var mean float64
 	for _, v := range yTrue {

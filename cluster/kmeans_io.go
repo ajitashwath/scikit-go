@@ -25,7 +25,6 @@ type kmeansGob struct {
 	NInit      int
 	Tol        float64
 	Seed       int64
-	NFreatures int
 	Centers    [][]float64
 	Labels     []float64
 	Inertia    float64
@@ -74,6 +73,15 @@ func LoadKMeans(path string) (*KMeans, error) {
 	}
 	if payload.Version != kmeansFormatVersion {
 		return nil, fmt.Errorf("LoadKMeans: unsupported format version %d (expected %d)", payload.Version, kmeansFormatVersion)
+	}
+	if len(payload.Centers) < 1 || len(payload.Centers) != payload.NClusters {
+		return nil, fmt.Errorf("LoadKMeans: corrupt payload: %d centers for n_clusters=%d", len(payload.Centers), payload.NClusters)
+	}
+	width := len(payload.Centers[0])
+	for i, c := range payload.Centers {
+		if width < 1 || len(c) != width {
+			return nil, fmt.Errorf("LoadKMeans: corrupt payload: center %d has %d entries, want %d", i, len(c), width)
+		}
 	}
 	return &KMeans{
 		NClusters: payload.NClusters,

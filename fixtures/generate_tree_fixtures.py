@@ -7,7 +7,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "tree_fixtures.json")
+OUT = os.path.join(HERE, "..", "tree", "testdata", "tree_fixtures.json")
 
 rng = np.random.default_rng(11)
 

@@ -219,3 +219,73 @@ func TestDecisionTreeRegressor_PredictWrongFeatureCount(t *testing.T) {
 		t.Error("expected error on wrong feature count")
 	}
 }
+func TestTree_MarshalBinaryRoundTrip(t *testing.T) {
+	X := [][]float64{{0, 1}, {1, 0}, {2, 3}, {3, 2}, {4, 5}, {5, 4}}
+	y := []float64{0, 0, 1, 1, 2, 2}
+
+	reg := NewDecisionTreeRegressor()
+	if err := reg.Fit(X, y); err != nil {
+		t.Fatalf("regressor Fit: %v", err)
+	}
+	data, err := reg.MarshalBinary()
+	if err != nil {
+		t.Fatalf("regressor MarshalBinary: %v", err)
+	}
+	var reg2 DecisionTreeRegressor
+	if err := reg2.UnmarshalBinary(data); err != nil {
+		t.Fatalf("regressor UnmarshalBinary: %v", err)
+	}
+	want, _ := reg.Predict(X)
+	got, err := reg2.Predict(X)
+	if err != nil {
+		t.Fatalf("regressor Predict after unmarshal: %v", err)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("regressor pred[%d]: got %v, want %v", i, got[i], want[i])
+		}
+	}
+
+	clf := NewDecisionTreeClassifier()
+	if err := clf.Fit(X, y); err != nil {
+		t.Fatalf("classifier Fit: %v", err)
+	}
+	data, err = clf.MarshalBinary()
+	if err != nil {
+		t.Fatalf("classifier MarshalBinary: %v", err)
+	}
+	var clf2 DecisionTreeClassifier
+	if err := clf2.UnmarshalBinary(data); err != nil {
+		t.Fatalf("classifier UnmarshalBinary: %v", err)
+	}
+	wantP, _ := clf.PredictProba(X)
+	gotP, err := clf2.PredictProba(X)
+	if err != nil {
+		t.Fatalf("classifier PredictProba after unmarshal: %v", err)
+	}
+	for i := range wantP {
+		for j := range wantP[i] {
+			if gotP[i][j] != wantP[i][j] {
+				t.Errorf("classifier proba[%d][%d]: got %v, want %v", i, j, gotP[i][j], wantP[i][j])
+			}
+		}
+	}
+
+	// A classifier payload must not decode into a regressor.
+	if err := reg2.UnmarshalBinary(mustMarshal(t, clf)); err == nil {
+		t.Error("decoding a classifier payload into a regressor should fail")
+	}
+	// An unfitted tree cannot be marshaled.
+	if _, err := NewDecisionTreeRegressor().MarshalBinary(); err == nil {
+		t.Error("marshaling an unfitted tree should fail")
+	}
+}
+
+func mustMarshal(t *testing.T, c *DecisionTreeClassifier) []byte {
+	t.Helper()
+	data, err := c.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary: %v", err)
+	}
+	return data
+}

@@ -2,7 +2,6 @@ package tree
 
 import (
 	"math"
-	"sort"
 )
 
 const (
@@ -28,6 +27,7 @@ type splitter struct {
 	yClass           []int
 	classes          []float64
 	Xf32             [][]float32 // Xf32[f] = float32 column values by sample index
+	valuesBuf        []float32   // scratch for the sorted feature values of one node
 }
 
 // splitRecord is the result of a node split, mirroring sklearn's SplitRecord plus
@@ -59,6 +59,7 @@ func newSplitter(X [][]float64, y []float64, classes []float64, yClass []int, pa
 		yClass:           yClass,
 		classes:          classes,
 		Xf32:             make([][]float32, nFeatures),
+		valuesBuf:        make([]float32, n),
 	}
 	for i := range sp.features {
 		sp.features[i] = i
@@ -80,27 +81,36 @@ type featureSorted struct {
 	indices []int
 }
 
+// sortByFeature sorts samples in place by one feature's float32 values, exactly
+// as sklearn's partitioner does, and returns a view over the sorted samples and
+// the (scratch) sorted values. Like sklearn, it leaves the node's sample array
+// in this order: the array state after the last scanned feature is what the
+// final partition starts from, and so what the child nodes inherit. The
+// returned values are only valid until the next call.
 func (sp *splitter) sortByFeature(samples []int, feature int) featureSorted {
-	n := len(samples)
-	fs := featureSorted{values: make([]float32, n), indices: make([]int, n)}
+	values := sp.valuesBuf[:len(samples)]
+	col := sp.Xf32[feature]
 	for i, si := range samples {
-		fs.values[i] = sp.Xf32[feature][si]
-		fs.indices[i] = si
+		values[i] = col[si]
 	}
-	order := make([]int, n)
-	for i := range order {
-		order[i] = i
+	simultaneousSort(values, samples)
+	return featureSorted{values: values, indices: samples}
+}
+
+// partitionSamplesFinal partitions samples in place around the chosen split,
+// mirroring sklearn's DensePartitioner.partition_samples_final: samples at or
+// below the threshold move left and the rest are swapped in from the right end.
+// Children keep the order this leaves them in.
+func partitionSamplesFinal(samples []int, col []float32, threshold float64) {
+	p, end := 0, len(samples)
+	for p < end {
+		if float64(col[samples[p]]) <= threshold {
+			p++
+		} else {
+			end--
+			samples[p], samples[end] = samples[end], samples[p]
+		}
 	}
-	sort.Slice(order, func(a, b int) bool { return fs.values[order[a]] < fs.values[order[b]] })
-	vals := make([]float32, n)
-	idx := make([]int, n)
-	for i, o := range order {
-		vals[i] = fs.values[o]
-		idx[i] = fs.indices[o]
-	}
-	fs.values = vals
-	fs.indices = idx
-	return fs
 }
 
 // nodeSplit finds the best split over the node's samples, mirroring sklearn's
@@ -153,23 +163,18 @@ func (sp *splitter) nodeSplit(samples []int, parentImpurity float64, nKnownConst
 		}
 	}
 
+	if best.valid && best.pos < n {
+		partitionSamplesFinal(samples, sp.Xf32[best.feature], best.threshold)
+		if sp.criterion == criterionMSE {
+			sp.finalizeMSE(samples, &best, parentImpurity, sums)
+		}
+	}
+
 	// Restore invariants for constant features (vacuous when none exist).
 	copy(features[:nKnownConstants], constantFeatures[:nKnownConstants])
 	copy(constantFeatures[nKnownConstants:nTotalConstants], features[nKnownConstants:nTotalConstants])
 	best.nConstants = nTotalConstants
 	return best
-}
-
-// nodeSums computes sum_total/sq_sum_total over samples in the given order,
-// mirroring sklearn's RegressionCriterion.init for the MSE criterion.
-func (sp *splitter) nodeSums(samples []int) nodeSums {
-	var sumTotal, sqSumTotal float64
-	for _, si := range samples {
-		v := sp.y[si]
-		sumTotal += v
-		sqSumTotal += v * v
-	}
-	return nodeSums{sumTotal: sumTotal, sqSumTotal: sqSumTotal, initialized: true}
 }
 
 // scanFeature evaluates all valid split positions of one feature and returns the
@@ -192,7 +197,6 @@ func (sp *splitter) scanFeature(fs featureSorted, feature int, parentImpurity fl
 func (sp *splitter) scanMSE(fs featureSorted, feature int, parentImpurity float64, sums nodeSums) splitRecord {
 	n := len(fs.values)
 	sumTotal := sums.sumTotal
-	sqSumTotal := sums.sqSumTotal
 	bestProxy := math.Inf(-1)
 	bestPos := -1
 	pos := 0
@@ -218,25 +222,31 @@ func (sp *splitter) scanMSE(fs featureSorted, feature int, parentImpurity float6
 	if bestPos < 0 {
 		return splitRecord{}
 	}
-	return sp.finishMSE(fs, feature, parentImpurity, bestPos, bestProxy, sumTotal, sqSumTotal)
+	// Child impurities are filled in by finalizeMSE once the samples have been
+	// partitioned, because sklearn evaluates them in that order.
+	return sp.makeRecord(fs, feature, parentImpurity, bestPos, bestProxy, 0, 0)
 }
 
-// finishMSE reconstructs the criterion state at bestPos from pos=0 (as sklearn's
-// final partition + children_impurity does) and returns the completed record.
-func (sp *splitter) finishMSE(fs featureSorted, feature int, parentImpurity float64, bestPos int, bestProxy, sumTotal, sqSumTotal float64) splitRecord {
-	n := len(fs.values)
-	nL, nR := bestPos, n-bestPos
-	sumL := sp.updateMSE(fs.indices, n, 0, bestPos, 0, sumTotal)
-	sumR := sumTotal - sumL
+// finalizeMSE computes the chosen split's child impurities and improvement the
+// way sklearn does after partitioning: criterion.reset() and update(pos) over the
+// partitioned sample order, then children_impurity. The order matters only at the
+// level of float rounding, but that is enough to decide ties between features.
+func (sp *splitter) finalizeMSE(samples []int, rec *splitRecord, parentImpurity float64, sums nodeSums) {
+	n, pos := len(samples), rec.pos
+	nL, nR := pos, n-pos
+	sumL := sp.updateMSE(samples, n, 0, pos, 0, sums.sumTotal)
+	sumR := sums.sumTotal - sumL
 	var sqSumL float64
-	for q := 0; q < bestPos; q++ {
-		v := sp.y[fs.indices[q]]
+	for _, si := range samples[:pos] {
+		v := sp.y[si]
 		sqSumL += v * v
 	}
-	sqSumR := sqSumTotal - sqSumL
+	sqSumR := sums.sqSumTotal - sqSumL
 	impL := sqSumL/float64(nL) - (sumL/float64(nL))*(sumL/float64(nL))
 	impR := sqSumR/float64(nR) - (sumR/float64(nR))*(sumR/float64(nR))
-	return sp.makeRecord(fs, feature, parentImpurity, bestPos, bestProxy, impL, impR)
+	nf, nLf, nRf := float64(n), float64(nL), float64(nR)
+	rec.impurityLeft, rec.impurityRight = impL, impR
+	rec.improvement = (nf / float64(sp.nTotal)) * (parentImpurity - (nRf/nf)*impR - (nLf/nf)*impL)
 }
 
 // updateMSE mirrors sklearn's MSE criterion.update direction logic.

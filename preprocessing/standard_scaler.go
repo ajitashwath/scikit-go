@@ -189,6 +189,16 @@ func LoadStandardScaler(path string) (*StandardScaler, error) {
 	if payload.Version != standardScalerFormatVersion {
 		return nil, fmt.Errorf("LoadStandardScaler: Unsupported format version %d (expected %d)", payload.Version, standardScalerFormatVersion)
 	}
+	if payload.NFeatures < 1 || len(payload.Mean) != payload.NFeatures ||
+		len(payload.Scale) != payload.NFeatures || len(payload.Var) != payload.NFeatures {
+		return nil, fmt.Errorf("LoadStandardScaler: corrupt payload: %d features but %d means, %d scales, %d variances",
+			payload.NFeatures, len(payload.Mean), len(payload.Scale), len(payload.Var))
+	}
+	for j, sc := range payload.Scale {
+		if sc == 0 || math.IsNaN(sc) || math.IsInf(sc, 0) {
+			return nil, fmt.Errorf("LoadStandardScaler: corrupt payload: scale[%d] is %v", j, sc)
+		}
+	}
 
 	return &StandardScaler{
 		Mean:      payload.Mean,

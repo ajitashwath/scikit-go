@@ -6,7 +6,7 @@ from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "cluster_fixtures.json")
+OUT = os.path.join(HERE, "..", "cluster", "testdata", "cluster_fixtures.json")
 
 rng = np.random.default_rng(31)
 

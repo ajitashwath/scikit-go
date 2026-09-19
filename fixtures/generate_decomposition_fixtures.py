@@ -6,7 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.datasets import make_regression
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "decomposition_fixtures.json")
+OUT = os.path.join(HERE, "..", "decomposition", "testdata", "decomposition_fixtures.json")
 
 rng = np.random.default_rng(41)
 

@@ -260,13 +260,12 @@ func lloyd(X [][]float64, centers [][]float64, maxIter int, tol float64) ([][]fl
 		centersNew, counts := recomputeCenters(X, newLabels, nClusters)
 		// re-seed empty clusters to the farthest point
 		var shift float64
-		for c := 0; c < nClusters; c++ {
-			if counts[c] == 0 {
-				centersNew[c], _ = farthestPoint(X, centersNew)
-				shift = math.Inf(1)
-				break
+		if reseedEmptyClusters(X, centersNew, counts) {
+			shift = math.Inf(1)
+		} else {
+			for c := 0; c < nClusters; c++ {
+				shift += sqDist(centers[c], centersNew[c])
 			}
-			shift += sqDist(centers[c], centersNew[c])
 		}
 		centers = centersNew
 
@@ -318,6 +317,31 @@ func recomputeCenters(X [][]float64, labels []float64, nClusters int) ([][]float
 		}
 	}
 	return centers, counts
+}
+
+// reseedEmptyClusters moves every empty cluster's center onto the sample
+// farthest from its nearest center, and reports whether any cluster was empty.
+// Distances are measured against the non-empty centers only (the zero vectors
+// recomputeCenters leaves for empty clusters are not real centers), and each
+// reseeded center joins that set so that several empty clusters land on
+// distinct points rather than all picking the same one.
+func reseedEmptyClusters(X [][]float64, centers [][]float64, counts []int) bool {
+	live := make([][]float64, 0, len(centers))
+	for c := range centers {
+		if counts[c] > 0 {
+			live = append(live, centers[c])
+		}
+	}
+	reseeded := false
+	for c := range centers {
+		if counts[c] != 0 {
+			continue
+		}
+		centers[c], _ = farthestPoint(X, live)
+		live = append(live, centers[c])
+		reseeded = true
+	}
+	return reseeded
 }
 
 // farthestPoint returns the sample whose distance to its nearest center is

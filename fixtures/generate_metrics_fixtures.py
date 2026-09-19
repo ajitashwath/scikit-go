@@ -5,7 +5,7 @@ import numpy as np
 from sklearn import metrics as skm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "metrics_fixtures.json")
+OUT = os.path.join(HERE, "..", "metrics", "testdata", "metrics_fixtures.json")
 
 rng = np.random.default_rng(7)
 

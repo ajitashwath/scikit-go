@@ -6,7 +6,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "neighbors_fixtures.json")
+OUT = os.path.join(HERE, "..", "neighbors", "testdata", "neighbors_fixtures.json")
 
 rng = np.random.default_rng(21)
 

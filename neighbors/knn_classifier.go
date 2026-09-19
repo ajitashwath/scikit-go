@@ -44,7 +44,7 @@ func (c *KNeighborsClassifier) Fit(X [][]float64, y []float64) error {
 	if err := matutil.ValidateXy(X, y); err != nil {
 		return fmt.Errorf("KNeighborsClassifier.Fit: %w", err)
 	}
-	params, err := knnParamsFrom(c.NNeighbors, c.Weights, c.P)
+	params, err := knnParamsFrom(c.NNeighbors, c.Weights, c.P, len(X))
 	if err != nil {
 		return err
 	}

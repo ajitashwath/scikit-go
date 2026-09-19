@@ -5,6 +5,7 @@ package tree
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 )
 
@@ -114,16 +115,9 @@ func (b *treeBuilder) build(samples []int, depth int, impurity float64, nConstan
 		return nodeIdx
 	}
 
-	left := make([]int, 0, rec.pos)
-	right := make([]int, 0, n-rec.pos)
-	fs := b.sp.sortByFeature(samples, rec.feature)
-	for i, si := range fs.indices {
-		if i < rec.pos {
-			left = append(left, si)
-		} else {
-			right = append(right, si)
-		}
-	}
+	// nodeSplit has already partitioned samples in place; the children are the
+	// two halves, in the order the partition left them (sklearn's behavior).
+	left, right := samples[:rec.pos], samples[rec.pos:]
 
 	b.t.nodes[nodeIdx].Left = b.build(left, depth+1, rec.impurityLeft, rec.nConstants, b.childSums(left))
 	b.t.nodes[nodeIdx].Right = b.build(right, depth+1, rec.impurityRight, rec.nConstants, b.childSums(right))
@@ -237,6 +231,26 @@ func medianStatistical(vals []float64) float64 {
 
 // ErrInvalidCriterion is returned for unsupported criterion strings.
 var ErrInvalidCriterion = errors.New("tree: unsupported criterion")
+
+// ErrInvalidParams is returned when tree hyperparameters fail validation.
+var ErrInvalidParams = errors.New("tree: invalid hyperparameters")
+
+// validateParams checks the integer hyperparameters shared by both estimators,
+// using sklearn's bounds: min_samples_split >= 2, min_samples_leaf >= 1 and
+// max_features >= 0 (0 meaning all features). MaxDepth < 0 already means
+// unlimited, so any value is accepted.
+func validateParams(minSamplesSplit, minSamplesLeaf, maxFeatures int) error {
+	if minSamplesSplit < 2 {
+		return fmt.Errorf("%w: min_samples_split must be >= 2, got %d", ErrInvalidParams, minSamplesSplit)
+	}
+	if minSamplesLeaf < 1 {
+		return fmt.Errorf("%w: min_samples_leaf must be >= 1, got %d", ErrInvalidParams, minSamplesLeaf)
+	}
+	if maxFeatures < 0 {
+		return fmt.Errorf("%w: max_features must be >= 0, got %d", ErrInvalidParams, maxFeatures)
+	}
+	return nil
+}
 
 // predictValue traverses the tree iteratively and returns the leaf's value vector.
 func (t *treeImpl) predictValue(row []float64) []float64 {

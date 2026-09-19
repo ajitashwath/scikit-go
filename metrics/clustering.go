@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -156,10 +157,14 @@ func AdjustedMutualInfo(labelsTrue, labelsPred []float64) (float64, error) {
 	return numerator / denominator, nil
 }
 
+// ErrInvalidClusterCount is returned by SilhouetteScore when the labeling does not
+// have between 2 and n_samples-1 distinct clusters, where the score is undefined.
+var ErrInvalidClusterCount = errors.New("metrics: invalid number of clusters for the silhouette score")
+
 // SilhouetteScore returns the mean silhouette coefficient over all samples,
 // matching sklearn.metrics.silhouette_score with its default Euclidean metric.
-// Samples in singleton clusters (and degenerate single-cluster inputs) score 0,
-// matching scikit-learn.
+// Samples in singleton clusters score 0, as in scikit-learn. Like scikit-learn it
+// requires 2 <= n_labels <= n_samples-1 and otherwise returns ErrInvalidClusterCount.
 func SilhouetteScore(X [][]float64, labels []float64) (float64, error) {
 	if err := matutil.ValidateXy(X, labels); err != nil {
 		return 0, fmt.Errorf("metrics: %w", err)
@@ -170,8 +175,9 @@ func SilhouetteScore(X [][]float64, labels []float64) (float64, error) {
 	for i, l := range labels {
 		clusterMembers[l] = append(clusterMembers[l], i)
 	}
-	if n == 1 || len(clusterMembers) == 1 || len(clusterMembers) == n {
-		return 0.0, nil
+	if k := len(clusterMembers); k < 2 || k > n-1 {
+		return 0, fmt.Errorf("%w: got %d labels for %d samples, valid values are 2 to %d",
+			ErrInvalidClusterCount, k, n, n-1)
 	}
 
 	dist := make([][]float64, n)

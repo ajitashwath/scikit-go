@@ -67,6 +67,9 @@ func (c *DecisionTreeClassifier) Fit(X [][]float64, y []float64) error {
 	if err != nil {
 		return err
 	}
+	if err := validateParams(c.MinSamplesSplit, c.MinSamplesLeaf, c.MaxFeatures); err != nil {
+		return fmt.Errorf("DecisionTreeClassifier.Fit: %w", err)
+	}
 
 	// Map labels to class indices over the sorted unique values (sklearn's classes_).
 	classes := sortedUnique(y)
@@ -160,6 +163,34 @@ func (c *DecisionTreeClassifier) Classes() []float64 {
 func (c *DecisionTreeClassifier) Save(path string) error {
 	return saveTree(path, "DecisionTreeClassifier", "classifier", c.Criterion,
 		c.MaxDepth, c.MinSamplesSplit, c.MinSamplesLeaf, c.MaxFeatures, c.Seed, c.impl, c.classes)
+}
+
+// MarshalBinary encodes the fitted tree in the same versioned gob format as Save,
+// so composite estimators can embed trees without touching the filesystem.
+func (c *DecisionTreeClassifier) MarshalBinary() ([]byte, error) {
+	return marshalTree("DecisionTreeClassifier", "classifier", c.Criterion,
+		c.MaxDepth, c.MinSamplesSplit, c.MinSamplesLeaf, c.MaxFeatures, c.Seed, c.impl, c.classes)
+}
+
+// UnmarshalBinary restores a tree previously encoded by MarshalBinary or Save.
+func (c *DecisionTreeClassifier) UnmarshalBinary(data []byte) error {
+	payload, impl, err := unmarshalTree(data, "DecisionTreeClassifier", "classifier")
+	if err != nil {
+		return err
+	}
+	*c = DecisionTreeClassifier{
+		Criterion:       payload.Criterion,
+		MaxDepth:        payload.MaxDepth,
+		MinSamplesSplit: payload.MinSamplesSplit,
+		MinSamplesLeaf:  payload.MinSamplesLeaf,
+		MaxFeatures:     payload.MaxFeatures,
+		Seed:            payload.Seed,
+		impl:            impl,
+		classes:         payload.Classes,
+		nFeatures:       payload.NFeatures,
+		fitted:          true,
+	}
+	return nil
 }
 
 // LoadDecisionTreeClassifier reads a fitted tree previously written by Save.

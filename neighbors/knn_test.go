@@ -2,6 +2,7 @@ package neighbors
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -272,5 +273,30 @@ func TestKNeighbors_SaveLoad(t *testing.T) {
 	// Cross-kind load must fail.
 	if _, err := LoadKNeighborsRegressor(cpath); err == nil {
 		t.Error("expected error loading classifier file as regressor")
+	}
+}
+func TestKNN_NNeighborsExceedsSamples(t *testing.T) {
+	X := [][]float64{{0}, {1}, {2}}
+	y := []float64{0, 1, 0}
+
+	c := NewKNeighborsClassifier()
+	c.NNeighbors = 10
+	if err := c.Fit(X, y); !errors.Is(err, ErrInvalidKNN) {
+		t.Fatalf("classifier Fit: got %v, want ErrInvalidKNN", err)
+	}
+
+	r := NewKNeighborsRegressor()
+	r.NNeighbors = 4
+	if err := r.Fit(X, y); !errors.Is(err, ErrInvalidKNN) {
+		t.Fatalf("regressor Fit: got %v, want ErrInvalidKNN", err)
+	}
+
+	// n_neighbors == n_samples is the largest valid value and must not panic.
+	c.NNeighbors = 3
+	if err := c.Fit(X, y); err != nil {
+		t.Fatalf("Fit with n_neighbors == n_samples: %v", err)
+	}
+	if _, err := c.Predict(X); err != nil {
+		t.Fatalf("Predict: %v", err)
 	}
 }

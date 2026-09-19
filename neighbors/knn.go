@@ -63,32 +63,6 @@ type knnParams struct {
 	p          float64
 }
 
-// kneighbors returns the indices of the k nearest training rows to each row of
-// X, ordered by ascending distance. Ties are broken by the original training
-// index, mirroring sklearn's brute-force argpartition+argsort behavior for
-// distinct distances.
-func (m *knnModel) kneighbors(X [][]float64) [][]int {
-	out := make([][]int, len(X))
-	for i, row := range X {
-		ns := make([]neighbor, len(m.X))
-		for j, trainRow := range m.X {
-			ns[j] = neighbor{index: j, distance: MinkowskiDistance(row, trainRow, m.p)}
-		}
-		sort.Slice(ns, func(a, b int) bool {
-			if ns[a].distance != ns[b].distance {
-				return ns[a].distance < ns[b].distance
-			}
-			return ns[a].index < ns[b].index
-		})
-		indices := make([]int, m.nNeighbors)
-		for k := 0; k < m.nNeighbors; k++ {
-			indices[k] = ns[k].index
-		}
-		out[i] = indices
-	}
-	return out
-}
-
 // kneighborsDistances returns the k nearest training row indices and their
 // distances to each row of X, both ordered by ascending distance.
 func (m *knnModel) kneighborsDistances(X [][]float64) (distances [][]float64, indices [][]int) {

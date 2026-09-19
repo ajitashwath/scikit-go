@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"errors"
 	"math"
 	"path/filepath"
 	"testing"
@@ -203,5 +204,46 @@ func TestDecisionTreeClassifier_InvalidCriterion(t *testing.T) {
 	model.Criterion = "bogus"
 	if err := model.Fit([][]float64{{1}, {2}}, []float64{1, 2}); err == nil {
 		t.Error("expected error on invalid criterion")
+	}
+}
+func TestTree_InvalidHyperparameters(t *testing.T) {
+	X := [][]float64{{0}, {1}, {2}, {3}}
+	y := []float64{0, 0, 1, 1}
+	cases := []struct {
+		name   string
+		mutate func(split, leaf, features *int)
+	}{
+		{"min_samples_split=1", func(s, _, _ *int) { *s = 1 }},
+		{"min_samples_split=0", func(s, _, _ *int) { *s = 0 }},
+		{"min_samples_leaf=0", func(_, l, _ *int) { *l = 0 }},
+		{"min_samples_leaf<0", func(_, l, _ *int) { *l = -3 }},
+		{"max_features<0", func(_, _, f *int) { *f = -1 }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewDecisionTreeClassifier()
+			tc.mutate(&c.MinSamplesSplit, &c.MinSamplesLeaf, &c.MaxFeatures)
+			if err := c.Fit(X, y); !errors.Is(err, ErrInvalidParams) {
+				t.Errorf("classifier: got %v, want ErrInvalidParams", err)
+			}
+			r := NewDecisionTreeRegressor()
+			tc.mutate(&r.MinSamplesSplit, &r.MinSamplesLeaf, &r.MaxFeatures)
+			if err := r.Fit(X, y); !errors.Is(err, ErrInvalidParams) {
+				t.Errorf("regressor: got %v, want ErrInvalidParams", err)
+			}
+		})
+	}
+}
+
+func TestTree_MaxFeaturesAboveNFeatures(t *testing.T) {
+	X := [][]float64{{0, 5}, {1, 4}, {2, 3}, {3, 2}, {4, 1}, {5, 0}}
+	y := []float64{0, 0, 0, 1, 1, 1}
+	c := NewDecisionTreeClassifier()
+	c.MaxFeatures = 50
+	if err := c.Fit(X, y); err != nil {
+		t.Fatalf("Fit: %v", err)
+	}
+	if _, err := c.Predict(X); err != nil {
+		t.Fatalf("Predict: %v", err)
 	}
 }

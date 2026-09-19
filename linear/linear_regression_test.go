@@ -139,21 +139,116 @@ func TestLinearRegression_ScoreConstantTargets(t *testing.T) {
 	// On constant targets R2 follows sklearn's edge rules (ssTot == 0): predictions
 	// not bitwise equal to the constant score 0.0, perfect predictions score 1.0.
 	// This guards the Score delegation to metrics.R2Score.
-	model := NewLinearRegression()
 	X := [][]float64{{1.0}, {2.0}, {3.0}}
 	constY := []float64{5.0, 5.0, 5.0}
-	if err := model.Fit(X, constY); err != nil {
+
+	// Fitting a constant target gives coef exactly 0 and intercept exactly 5, so
+	// the predictions are exact and the score is 1.0 (as in sklearn).
+	exact := NewLinearRegression()
+	if err := exact.Fit(X, constY); err != nil {
 		t.Fatalf("Fit failed: %v", err)
 	}
+	r2, err := exact.Score(X, constY)
+	if err != nil {
+		t.Fatalf("Score failed: %v", err)
+	}
+	if r2 != 1.0 {
+		t.Errorf("exact fit on constant targets: got %v, want 1.0", r2)
+	}
 
-	// QR lstsq returns intercept/coef with tiny floating-point residuals, so
-	// predictions are never bitwise equal to the constant -> sklearn scores 0.0.
-	r2, err := model.Score(X, constY)
+	// A model fitted to something else, scored against constant targets, is
+	// not a perfect fit and scores 0.0.
+	other := NewLinearRegression()
+	if err := other.Fit(X, []float64{1, 2, 4}); err != nil {
+		t.Fatalf("Fit failed: %v", err)
+	}
+	r2, err = other.Score(X, constY)
 	if err != nil {
 		t.Fatalf("Score failed: %v", err)
 	}
 	if r2 != 0.0 {
-		t.Errorf("constant-target fit: got %v, want 0.0", r2)
+		t.Errorf("imperfect fit on constant targets: got %v, want 0.0", r2)
+	}
+}
+
+// The minimum-norm solution must be returned (as sklearn does) instead of an
+// error or a panic when the design matrix is rank deficient. Expected values come
+// from sklearn.linear_model.LinearRegression.
+func TestLinearRegression_RankDeficient(t *testing.T) {
+	cases := []struct {
+		name          string
+		X             [][]float64
+		y             []float64
+		coef          []float64
+		intercept     float64
+		rank          int
+		wantPredTrain []float64
+	}{
+		{"collinear columns", [][]float64{{1, 2}, {2, 4}, {3, 6}, {4, 8}}, []float64{1, 2, 3, 4},
+			[]float64{0.2, 0.4}, 0, 1, []float64{1, 2, 3, 4}},
+		{"more features than samples", [][]float64{{1, 2, 3}, {2, 1, 0}}, []float64{1, 2},
+			[]float64{0.090909090909, -0.090909090909, -0.272727272727}, 1.909090909091, 1,
+			[]float64{1, 2}},
+		{"constant column", [][]float64{{1, 5}, {2, 5}, {3, 5}}, []float64{2, 4, 7},
+			[]float64{2.5, 0}, -0.666666666667, 1, []float64{1.833333333333, 4.333333333333, 6.833333333333}},
+		{"single sample", [][]float64{{2, 3}}, []float64{5},
+			[]float64{0, 0}, 5, 0, []float64{5}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewLinearRegression()
+			if err := m.Fit(tc.X, tc.y); err != nil {
+				t.Fatalf("Fit: %v", err)
+			}
+			for j, want := range tc.coef {
+				if math.Abs(m.Coef[j]-want) > 1e-9 {
+					t.Errorf("coef[%d]: got %v, want %v", j, m.Coef[j], want)
+				}
+			}
+			if math.Abs(m.Intercept-tc.intercept) > 1e-9 {
+				t.Errorf("intercept: got %v, want %v", m.Intercept, tc.intercept)
+			}
+			if m.Rank() != tc.rank {
+				t.Errorf("rank: got %d, want %d", m.Rank(), tc.rank)
+			}
+			pred, err := m.Predict(tc.X)
+			if err != nil {
+				t.Fatalf("Predict: %v", err)
+			}
+			for i, want := range tc.wantPredTrain {
+				if math.Abs(pred[i]-want) > 1e-9 {
+					t.Errorf("pred[%d]: got %v, want %v", i, pred[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestLinearRegression_TolControlsRank(t *testing.T) {
+	// The second column is a tiny perturbation of the first: with the default
+	// tol=1e-6 it counts as collinear (rank 1); with a much smaller tol it does not.
+	X := [][]float64{{1, 1 + 1e-9}, {2, 2 - 1e-9}, {3, 3 + 2e-9}, {4, 4}}
+	y := []float64{1, 2, 3, 4}
+	def := NewLinearRegression()
+	if err := def.Fit(X, y); err != nil {
+		t.Fatalf("Fit: %v", err)
+	}
+	strict := NewLinearRegression()
+	strict.Tol = 1e-15
+	if err := strict.Fit(X, y); err != nil {
+		t.Fatalf("Fit: %v", err)
+	}
+	if def.Rank() != 1 || strict.Rank() != 2 {
+		t.Errorf("rank: default tol %d (want 1), tol=1e-15 %d (want 2)", def.Rank(), strict.Rank())
+	}
+
+	bad := NewLinearRegression()
+	bad.Tol = -1
+	if err := bad.Fit(X, y); err == nil {
+		t.Error("a negative tol should be rejected")
+	}
+	if NewLinearRegression().Rank() != 0 {
+		t.Error("Rank before Fit should be 0")
 	}
 }
 

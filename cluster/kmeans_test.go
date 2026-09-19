@@ -229,3 +229,30 @@ func TestKMeans_SaveLoad(t *testing.T) {
 		}
 	}
 }
+func TestReseedEmptyClusters_MultipleEmpty(t *testing.T) {
+	X := [][]float64{{0, 0}, {1, 0}, {10, 0}, {20, 0}, {50, 0}}
+	// Clusters 1 and 3 are empty; recomputeCenters leaves zero placeholders there.
+	centers := [][]float64{{0.5, 0}, {0, 0}, {10, 0}, {0, 0}}
+	counts := []int{2, 0, 1, 0}
+
+	if !reseedEmptyClusters(X, centers, counts) {
+		t.Fatal("expected reseeding to be reported")
+	}
+	// The farthest point from the live centers {0.5,0} and {10,0} is {50,0};
+	// the next, now also measuring against {50,0}, is {20,0}. Neither empty
+	// cluster may keep its zero placeholder, and they must not collide.
+	if centers[1][0] != 50 || centers[3][0] != 20 {
+		t.Fatalf("empty clusters reseeded to %v and %v, want [50 0] and [20 0]", centers[1], centers[3])
+	}
+	if centers[0][0] != 0.5 || centers[2][0] != 10 {
+		t.Fatalf("non-empty centers were modified: %v", centers)
+	}
+}
+
+func TestReseedEmptyClusters_NoneEmpty(t *testing.T) {
+	X := [][]float64{{0, 0}, {10, 10}}
+	centers := [][]float64{{0, 0}, {10, 10}}
+	if reseedEmptyClusters(X, centers, []int{1, 1}) {
+		t.Fatal("no cluster was empty, reseed must report false")
+	}
+}

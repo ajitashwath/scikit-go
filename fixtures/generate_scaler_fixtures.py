@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "standard_scaler_fixtures.json")
+OUT = os.path.join(HERE, "..", "preprocessing", "testdata", "standard_scaler_fixtures.json")
 
 np.random.seed(42)
 

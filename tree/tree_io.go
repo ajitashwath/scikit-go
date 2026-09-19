@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"bytes"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -52,19 +53,13 @@ func nodeFromGob(n treeNodeGob) treeNode {
 	}
 }
 
-// saveTree writes a fitted tree to path in the versioned gob format.
+// marshalTree encodes a fitted tree into the versioned gob payload.
 // name is the display name used in error messages ("DecisionTreeRegressor"),
 // kind is the lowercase payload kind ("regressor").
-func saveTree(path, name, kind, criterion string, maxDepth, minSamplesSplit, minSamplesLeaf, maxFeatures int, seed int64, t *treeImpl, classes []float64) error {
+func marshalTree(name, kind, criterion string, maxDepth, minSamplesSplit, minSamplesLeaf, maxFeatures int, seed int64, t *treeImpl, classes []float64) ([]byte, error) {
 	if t == nil {
-		return matutil.ErrNotFitted
+		return nil, matutil.ErrNotFitted
 	}
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("%s.Save: %w", name, err)
-	}
-	defer f.Close()
-
 	nodes := make([]treeNodeGob, len(t.nodes))
 	for i, n := range t.nodes {
 		nodes[i] = nodeToGob(n)
@@ -82,23 +77,30 @@ func saveTree(path, name, kind, criterion string, maxDepth, minSamplesSplit, min
 		Nodes:           nodes,
 		Classes:         classes,
 	}
-	if err := gob.NewEncoder(f).Encode(payload); err != nil {
-		return fmt.Errorf("%s.Save: encode failed: %w", name, err)
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(payload); err != nil {
+		return nil, fmt.Errorf("%s.Save: encode failed: %w", name, err)
+	}
+	return buf.Bytes(), nil
+}
+
+// saveTree writes a fitted tree to path in the versioned gob format.
+func saveTree(path, name, kind, criterion string, maxDepth, minSamplesSplit, minSamplesLeaf, maxFeatures int, seed int64, t *treeImpl, classes []float64) error {
+	data, err := marshalTree(name, kind, criterion, maxDepth, minSamplesSplit, minSamplesLeaf, maxFeatures, seed, t, classes)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("%s.Save: %w", name, err)
 	}
 	return nil
 }
 
-// loadTree reads a versioned tree payload and reconstructs the treeImpl.
+// unmarshalTree decodes a versioned tree payload and reconstructs the treeImpl.
 // name is the display name used in error messages, kind the expected payload kind.
-func loadTree(path, name, kind string) (*treeGob, *treeImpl, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Load%s: %w", name, err)
-	}
-	defer f.Close()
-
+func unmarshalTree(data []byte, name, kind string) (*treeGob, *treeImpl, error) {
 	var payload treeGob
-	if err := gob.NewDecoder(f).Decode(&payload); err != nil {
+	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&payload); err != nil {
 		return nil, nil, fmt.Errorf("Load%s: decode failed: %w", name, err)
 	}
 	if payload.Version != treeFormatVersion {
@@ -108,6 +110,9 @@ func loadTree(path, name, kind string) (*treeGob, *treeImpl, error) {
 		return nil, nil, fmt.Errorf("Load%s: file contains a %s, not a %s", name, payload.Kind, kind)
 	}
 
+	if err := validateNodes(&payload, kind); err != nil {
+		return nil, nil, fmt.Errorf("Load%s: corrupt payload: %w", name, err)
+	}
 	nodes := make([]treeNode, len(payload.Nodes))
 	for i, n := range payload.Nodes {
 		nodes[i] = nodeFromGob(n)
@@ -117,4 +122,44 @@ func loadTree(path, name, kind string) (*treeGob, *treeImpl, error) {
 		root:      0,
 		nFeatures: payload.NFeatures,
 	}, nil
+}
+
+// validateNodes checks the decoded node array: children must point forward (the
+// tree is stored in preorder, so this also rules out cycles), split features must
+// exist, and every node's value vector must have the length prediction expects.
+func validateNodes(p *treeGob, kind string) error {
+	if p.NFeatures < 1 || len(p.Nodes) < 1 {
+		return fmt.Errorf("%d nodes over %d features", len(p.Nodes), p.NFeatures)
+	}
+	valueLen := 1
+	if kind == "classifier" {
+		valueLen = len(p.Classes)
+		if valueLen < 1 {
+			return fmt.Errorf("classifier without classes")
+		}
+	}
+	for i, n := range p.Nodes {
+		if len(n.Value) != valueLen {
+			return fmt.Errorf("node %d has %d values, want %d", i, len(n.Value), valueLen)
+		}
+		if n.Feature < 0 {
+			continue // leaf
+		}
+		if n.Feature >= p.NFeatures {
+			return fmt.Errorf("node %d splits on feature %d of %d", i, n.Feature, p.NFeatures)
+		}
+		if n.Left <= i || n.Left >= len(p.Nodes) || n.Right <= i || n.Right >= len(p.Nodes) {
+			return fmt.Errorf("node %d has children (%d, %d) outside (%d, %d)", i, n.Left, n.Right, i, len(p.Nodes))
+		}
+	}
+	return nil
+}
+
+// loadTree reads a versioned tree payload from path.
+func loadTree(path, name, kind string) (*treeGob, *treeImpl, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Load%s: %w", name, err)
+	}
+	return unmarshalTree(data, name, kind)
 }

@@ -1,7 +1,11 @@
 import json
+import os
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.datasets import load_diabetes
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, "..", "linear", "testdata", "linear_regression_fixtures.json")
 
 np.random.seed(42)
 
@@ -63,7 +67,7 @@ fixtures["simple_exact"] = {
     "r2_score": float(model_simple.score(X_simple, y_simple)),
 }
 
-with open("linear_regression_fixtures.json", "w") as f:
+with open(OUT, "w") as f:
     json.dump(fixtures, f, indent=2)
 
 for name, fx in fixtures.items():

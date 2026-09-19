@@ -89,7 +89,10 @@ func binaryConfusionCounts(yTrue, yPred []float64, posLabel float64) (tp, fp, fn
 			break
 		}
 	}
-	if !found {
+	// sklearn only rejects a missing pos_label when two labels are present. With a
+	// single label (say an all-negative fold) there are simply no positives, and the
+	// scores are 0.
+	if !found && len(labels) >= 2 {
 		return 0, 0, 0, 0, fmt.Errorf("metrics: pos_label %v is not a valid label", posLabel)
 	}
 	for i := range yTrue {
