@@ -1,4 +1,4 @@
-# Scikit-Go (sibling of Scikit-learn)
+# Scikit-Go
 
 A scikit-learn-style machine learning library in Go, built on [gonum](https://gonum.org).
 Estimators follow sklearn's shape (`Fit`, `Predict`, `Transform`, `Score`) and are checked
