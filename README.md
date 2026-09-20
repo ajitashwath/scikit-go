@@ -99,15 +99,17 @@ Anything in the list above is a gap, not a design decision; none of it is ruled 
 
 ## Try it
 
-[`examples/`](examples) has runnable programs for classification, regression, clustering,
-dimensionality reduction, feature selection, nonlinear models and saving/loading models,
-each importing the library by its public path. `examples/quickstart` fits a model from every
-package on the bundled iris and diabetes datasets, prints a score for each, and exits non-zero
-if any score falls below its floor:
+[`examples/`](examples) has runnable programs for classification, regression, regularized linear
+models, logistic regression, hyperparameter tuning, clustering, dimensionality reduction, feature
+selection, nonlinear models and saving/loading models, each importing the library by its public
+path. `examples/quickstart` fits a model from each estimator package on the bundled iris and
+diabetes datasets, prints a score for each, and exits non-zero if any score falls below its floor:
 
 ```
 go run ./examples/quickstart
 go run ./examples/iris_classification
+go run ./examples/regularized_regression
+go run ./examples/logistic_regression
 go run ./examples/hyperparameter_tuning
 ```
 
