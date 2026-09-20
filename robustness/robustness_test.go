@@ -77,6 +77,16 @@ type subject struct {
 func subjects() []subject {
 	return []subject{
 		{"LinearRegression", func() any { return linear.NewLinearRegression() }},
+		{"Ridge", func() any { return linear.NewRidge() }},
+		{"Ridge alpha=0", func() any { r := linear.NewRidge(); r.Alpha = 0; return r }},
+		{"Ridge no intercept", func() any { r := linear.NewRidge(); r.FitIntercept = false; return r }},
+		{"Lasso", func() any { l := linear.NewLasso(); l.Alpha = 0.1; return l }},
+		{"Lasso alpha=0", func() any { l := linear.NewLasso(); l.Alpha = 0; return l }},
+		{"ElasticNet", func() any { e := linear.NewElasticNet(); e.Alpha = 0.1; return e }},
+		{"ElasticNet pure L2", func() any { e := linear.NewElasticNet(); e.Alpha, e.L1Ratio = 0.1, 0; return e }},
+		{"LogisticRegression", func() any { return linear.NewLogisticRegression() }},
+		{"LogisticRegression no intercept", func() any { m := linear.NewLogisticRegression(); m.FitIntercept = false; return m }},
+		{"LogisticRegression C=inf", func() any { m := linear.NewLogisticRegression(); m.C = math.Inf(1); m.MaxIter = 50; return m }},
 		{"StandardScaler", func() any { return preprocessing.NewStandardScaler() }},
 		{"PCA default", func() any { return decomposition.NewPCA() }},
 		{"PCA 1 component", func() any { p := decomposition.NewPCA(); p.NComponents = 1; return p }},
@@ -106,6 +116,12 @@ func subjects() []subject {
 			return s
 		}},
 		{"RFE linear", func() any { return feature_selection.NewRFE(linear.NewLinearRegression()) }},
+		{"RFE lasso", func() any { l := linear.NewLasso(); l.Alpha = 0.1; return feature_selection.NewRFE(l) }},
+		{"RFE logistic", func() any { return feature_selection.NewRFE(linear.NewLogisticRegression()) }},
+		{"Pipeline scaler+logistic", func() any {
+			p, _ := pipeline.MakePipeline(preprocessing.NewStandardScaler(), linear.NewLogisticRegression())
+			return p
+		}},
 		{"Pipeline scaler+linear", func() any {
 			p, _ := pipeline.MakePipeline(preprocessing.NewStandardScaler(), linear.NewLinearRegression())
 			return p

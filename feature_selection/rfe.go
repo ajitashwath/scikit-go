@@ -3,6 +3,7 @@ package feature_selection
 import (
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/ajitashwath/scikit-go/core"
@@ -52,6 +53,28 @@ func featureImportances(est core.Estimator, nCols int) ([]float64, error) {
 	switch e := est.(type) {
 	case *linear.LinearRegression:
 		imp = e.Coef
+	case *linear.Ridge:
+		imp = e.Coef
+	case *linear.Lasso:
+		imp = e.Coef
+	case *linear.ElasticNet:
+		imp = e.Coef
+	case *linear.LogisticRegression:
+		// One coefficient row for two classes, one per class otherwise. The caller squares
+		// what is returned, so hand back the root of the summed squares to rank on the total.
+		rows := e.Coef()
+		if len(rows) == 0 {
+			return nil, fmt.Errorf("%w: %T is not fitted", ErrNoImportances, est)
+		}
+		imp = make([]float64, len(rows[0]))
+		for _, row := range rows {
+			for j, c := range row {
+				imp[j] += c * c
+			}
+		}
+		for j := range imp {
+			imp[j] = math.Sqrt(imp[j])
+		}
 	case interface{ FeatureImportances() []float64 }:
 		imp = e.FeatureImportances()
 	default:

@@ -6,8 +6,10 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/ajitashwath/scikit-go/core"
 	"github.com/ajitashwath/scikit-go/internal/matutil"
 	"github.com/ajitashwath/scikit-go/linear"
 	"github.com/ajitashwath/scikit-go/neighbors"
@@ -586,5 +588,45 @@ func TestSelectors_SaveBeforeFitAndBadFiles(t *testing.T) {
 	}
 	if _, err := LoadRFE(junk); err == nil {
 		t.Error("loading a corrupt file should fail")
+	}
+}
+
+// RFE can rank features with any of the linear models, not just LinearRegression.
+func TestRFE_WithRegularizedLinearModels(t *testing.T) {
+	// Regression: only columns 0-2 drive y among 8 columns.
+	X := make([][]float64, 150)
+	y := make([]float64, len(X))
+	yc := make([]float64, len(X))
+	for i := range X {
+		row := make([]float64, 8)
+		for j := range row {
+			row[j] = math.Sin(float64(i*(j+2))*0.9) + 0.4*math.Cos(float64(i*(j+5))*1.7)
+		}
+		X[i] = row
+		y[i] = 3*row[0] - 2*row[1] + 1.5*row[2]
+		if row[0]-row[1] > 0 { // classification labels depend on columns 0 and 1 only
+			yc[i] = 1
+		}
+	}
+	ridge, lasso, enet := linear.NewRidge(), linear.NewLasso(), linear.NewElasticNet()
+	lasso.Alpha, enet.Alpha = 0.01, 0.01
+	for name, est := range map[string]core.Estimator{"ridge": ridge, "lasso": lasso, "elastic_net": enet} {
+		r := NewRFE(est)
+		r.NFeaturesToSelect = 3
+		if err := r.Fit(X, y); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := r.SupportIndices(); !reflect.DeepEqual(got, []int{0, 1, 2}) {
+			t.Errorf("%s: RFE kept %v, want [0 1 2]", name, got)
+		}
+	}
+
+	r := NewRFE(linear.NewLogisticRegression())
+	r.NFeaturesToSelect = 2
+	if err := r.Fit(X, yc); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.SupportIndices(); !reflect.DeepEqual(got, []int{0, 1}) {
+		t.Errorf("logistic RFE kept %v, want [0 1]", got)
 	}
 }

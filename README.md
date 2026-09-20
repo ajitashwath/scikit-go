@@ -14,7 +14,7 @@ Requires Go 1.24 or newer (the floor set by gonum v0.17.0, the only dependency).
 
 | Package | Contents |
 |---|---|
-| `linear` | `LinearRegression` |
+| `linear` | `LinearRegression`, `Ridge`, `Lasso`, `ElasticNet`, `LogisticRegression` |
 | `preprocessing` | `StandardScaler` |
 | `decomposition` | `PCA` |
 | `cluster` | `KMeans` |
@@ -26,6 +26,7 @@ Requires Go 1.24 or newer (the floor set by gonum v0.17.0, the only dependency).
 | `pipeline` | `Pipeline`, `MakePipeline` |
 | `metrics` | regression, classification and clustering scores |
 | `datasets` | `MakeRegression`/`MakeClassification`/`MakeBlobs`/`MakeMoons`, `LoadIris`, `LoadDiabetes` |
+| `model_selection` | `KFold`, `StratifiedKFold`, `CrossValScore`, `GridSearchCV` |
 | `utils` | `TrainTestSplit`, `Shuffle` |
 
 Every estimator has a versioned gob `Save` / `Load<Type>`. Loaders validate the file's shape and return
@@ -41,10 +42,14 @@ pred, _ := p.Predict(Xtest)
 
 This is a v0.x library, so the surface above is deliberately narrow. Not implemented yet:
 
-- **Model selection.** `utils.TrainTestSplit` and `utils.Shuffle` are all there is. There is no
-  `KFold`, `cross_val_score` or grid/random search.
-- **More linear models.** `LinearRegression` (ordinary least squares) is the only linear model.
-  There is no Ridge, Lasso, ElasticNet or logistic regression.
+- **Most of model selection.** `model_selection` has `KFold`, `StratifiedKFold`, `CrossValScore` and
+  `GridSearchCV`, and that is all. There is no `RandomizedSearchCV`, `ShuffleSplit`, `GroupKFold`,
+  `cross_val_predict`, learning curves or multi-metric scoring. Unlike sklearn, cross-validation does
+  not switch to stratified folds for classifiers on its own; pass `StratifiedKFold` yourself.
+- **The rest of the linear models.** `linear` has least squares, `Ridge`, `Lasso`, `ElasticNet` and
+  L2-regularized `LogisticRegression`. There is no L1 or elastic-net logistic regression, no class or
+  sample weights, no `SGDClassifier`, and no `RidgeCV`/`LassoCV` (use `GridSearchCV` over `Alpha`).
+  Lasso and ElasticNet use cyclic coordinate descent only.
 - **Boosting.** There is no gradient boosting; `ensemble` has random forests only.
 - **Sparse input, `partial_fit`, and cancellation via `context.Context`.** Everything takes dense
   `[][]float64` and fits in one call.
@@ -56,7 +61,12 @@ Anything in the list above is a gap, not a design decision; none of it is ruled 
 - **Only `ensemble` is parallel.** Random-forest trees are grown on up to `NJobs` goroutines
   (`0` means `GOMAXPROCS`). Every other estimator, including `SVC`/`SVR`, the decision trees,
   `KMeans`, `PCA` and the k-nearest-neighbors models, runs on a single goroutine, so expect them
-  to be slow on large datasets.
+  to be slow on large datasets. Cross-validation and `GridSearchCV` run their folds and
+  parameter combinations one after another too, so a large grid multiplies that cost.
+- **Iterative linear models stop on a tolerance, not an error.** `Lasso`, `ElasticNet` and
+  `LogisticRegression` run until `Tol` or `MaxIter`, like sklearn, and `Fit` does not fail if it runs
+  out of iterations: check `Converged()`. `LogisticRegression` uses its own small L-BFGS (no
+  dependency beyond gonum), so it matches sklearn to the solver tolerance rather than bit for bit.
 - **k-nearest-neighbors is brute force.** Each prediction computes the distance to every training
   sample. There is no kd-tree or ball-tree, so prediction cost grows linearly with the
   training-set size.
@@ -98,6 +108,28 @@ if any score falls below its floor:
 ```
 go run ./examples/quickstart
 go run ./examples/iris_classification
+go run ./examples/hyperparameter_tuning
+```
+
+Cross-validation and tuning take a function that builds a fresh model, since estimators are
+mutable and every fold needs its own. Pipelines are tuned through their `<step>__<Field>` names:
+
+```go
+build := func(params map[string]any) (model_selection.Model, error) {
+	p, err := pipeline.MakePipeline(preprocessing.NewStandardScaler(), svm.NewSVC())
+	if err != nil {
+		return nil, err
+	}
+	return p, p.SetParams(params)
+}
+search := model_selection.NewGridSearchCV(build, model_selection.ParamGrid{
+	"svc__C":      {0.1, 1.0, 10.0},
+	"svc__Kernel": {"linear", "rbf"},
+})
+search.CV = model_selection.NewStratifiedKFold(5)
+_ = search.Fit(Xtrain, ytrain)          // cross-validates all 6 combinations, refits the best
+fmt.Println(search.BestParams(), search.BestScore())
+pred, _ := search.Predict(Xtest)
 ```
 
 ## Testing

@@ -39,6 +39,14 @@ func kindOf(est any) (string, bool) {
 		return "standard_scaler", true
 	case *linear.LinearRegression:
 		return "linear_regression", true
+	case *linear.Ridge:
+		return "ridge", true
+	case *linear.Lasso:
+		return "lasso", true
+	case *linear.ElasticNet:
+		return "elastic_net", true
+	case *linear.LogisticRegression:
+		return "logistic_regression", true
 	case *decomposition.PCA:
 		return "pca", true
 	case *cluster.KMeans:
@@ -72,21 +80,25 @@ func kindOf(est any) (string, bool) {
 }
 
 var loaders = map[string]func(path string) (any, error){
-	"standard_scaler":    func(p string) (any, error) { return preprocessing.LoadStandardScaler(p) },
-	"linear_regression":  func(p string) (any, error) { return linear.LoadLinearRegression(p) },
-	"pca":                func(p string) (any, error) { return decomposition.LoadPCA(p) },
-	"kmeans":             func(p string) (any, error) { return cluster.LoadKMeans(p) },
-	"knn_classifier":     func(p string) (any, error) { return neighbors.LoadKNeighborsClassifier(p) },
-	"knn_regressor":      func(p string) (any, error) { return neighbors.LoadKNeighborsRegressor(p) },
-	"tree_classifier":    func(p string) (any, error) { return tree.LoadDecisionTreeClassifier(p) },
-	"tree_regressor":     func(p string) (any, error) { return tree.LoadDecisionTreeRegressor(p) },
-	"forest_classifier":  func(p string) (any, error) { return ensemble.LoadRandomForestClassifier(p) },
-	"forest_regressor":   func(p string) (any, error) { return ensemble.LoadRandomForestRegressor(p) },
-	"variance_threshold": func(p string) (any, error) { return feature_selection.LoadVarianceThreshold(p) },
-	"select_k_best":      func(p string) (any, error) { return feature_selection.LoadSelectKBest(p) },
-	"rfe":                func(p string) (any, error) { return feature_selection.LoadRFE(p) },
-	"svc":                func(p string) (any, error) { return svm.LoadSVC(p) },
-	"svr":                func(p string) (any, error) { return svm.LoadSVR(p) },
+	"standard_scaler":     func(p string) (any, error) { return preprocessing.LoadStandardScaler(p) },
+	"linear_regression":   func(p string) (any, error) { return linear.LoadLinearRegression(p) },
+	"ridge":               func(p string) (any, error) { return linear.LoadRidge(p) },
+	"lasso":               func(p string) (any, error) { return linear.LoadLasso(p) },
+	"elastic_net":         func(p string) (any, error) { return linear.LoadElasticNet(p) },
+	"logistic_regression": func(p string) (any, error) { return linear.LoadLogisticRegression(p) },
+	"pca":                 func(p string) (any, error) { return decomposition.LoadPCA(p) },
+	"kmeans":              func(p string) (any, error) { return cluster.LoadKMeans(p) },
+	"knn_classifier":      func(p string) (any, error) { return neighbors.LoadKNeighborsClassifier(p) },
+	"knn_regressor":       func(p string) (any, error) { return neighbors.LoadKNeighborsRegressor(p) },
+	"tree_classifier":     func(p string) (any, error) { return tree.LoadDecisionTreeClassifier(p) },
+	"tree_regressor":      func(p string) (any, error) { return tree.LoadDecisionTreeRegressor(p) },
+	"forest_classifier":   func(p string) (any, error) { return ensemble.LoadRandomForestClassifier(p) },
+	"forest_regressor":    func(p string) (any, error) { return ensemble.LoadRandomForestRegressor(p) },
+	"variance_threshold":  func(p string) (any, error) { return feature_selection.LoadVarianceThreshold(p) },
+	"select_k_best":       func(p string) (any, error) { return feature_selection.LoadSelectKBest(p) },
+	"rfe":                 func(p string) (any, error) { return feature_selection.LoadRFE(p) },
+	"svc":                 func(p string) (any, error) { return svm.LoadSVC(p) },
+	"svr":                 func(p string) (any, error) { return svm.LoadSVR(p) },
 }
 
 // A nested Pipeline is loadable too; it is registered here because LoadPipeline

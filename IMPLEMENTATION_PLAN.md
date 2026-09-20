@@ -153,10 +153,54 @@ Generic helpers not tied to a single estimator.
   (shuffle + deterministic split, `test_size` as fraction).
 - `Shuffle(X, y, seed)` — in-place permutation with a seeded `rand.Rand`.
 - `CheckConsistentLength(...)` / reshape helpers that wrap `matutil` errors.
-- Parameter grid helpers for later grid search (low priority; only if a need appears).
+- Cross-validation and hyperparameter search live in the separate `model_selection` package
+  (see below), not here.
 
-- Keep it small: do not add a `model_selection` package or hyperparameter search machinery
-  until an estimator actually needs it.
+### 3.3.1 `model_selection`
+
+`KFold`, `StratifiedKFold`, `CrossValScore` and `GridSearchCV`, added after v0.1 groundwork once
+the estimators were stable enough to be worth tuning (this reverses the earlier "keep it small"
+decision).
+
+- Splitters return `[]Split{Train, Test []int}` eagerly. Without shuffling they reproduce sklearn's
+  folds exactly (checked against golden fixtures, including `StratifiedKFold`'s first-appearance
+  class ordering). With `Shuffle` the fold sizes and stratification match but the indices do not,
+  because the permutation comes from Go's seeded RNG, the same deviation as `utils.TrainTestSplit`.
+- Estimators are mutable and have no clone method, so `CrossValScore` takes a `ModelFactory`
+  (`func() (Model, error)`) and `GridSearchCV` a `ModelBuilder` (`func(params) (Model, error)`).
+  Pipelines fit in through `Pipeline.SetParams` and its `<step>__<Field>` names.
+- Ranking treats mean scores within a relative 1e-12 as tied (the earliest combination wins),
+  unlike sklearn's exact float comparison, so that summing identical fold scores in a different
+  order cannot change the winner.
+- Fold data is deep-copied so a model that edits its inputs cannot leak into other folds.
+- `cv == nil` means a 5-fold `KFold`; unlike sklearn there is no automatic switch to stratified
+  folds for classifiers (no `is_classifier` check), so pass `StratifiedKFold` explicitly.
+- Known gaps: runs on one goroutine, no `RandomizedSearchCV`, no multi-metric scoring, no
+  `error_score` (any failing fit or score aborts the search), `GridSearchCV` is not serializable
+  (save `BestModel()` instead).
+
+### 3.3.2 `linear`: regularized models
+
+`Ridge`, `Lasso`, `ElasticNet` and `LogisticRegression` next to `LinearRegression`. All follow the
+usual pattern (`New*` constructor with sklearn's defaults, `Fit`/`Predict`/`Score`, versioned gob
+`Save`/`Load*`, registered in `pipeline` and, for the coefficient models, usable by `RFE`).
+
+- `Ridge` solves the penalized least squares from the SVD of the centered data, so it is stable for
+  collinear columns, works when p > n and at `Alpha = 0` (where tiny singular values are dropped).
+- `Lasso` and `ElasticNet` port sklearn 1.9's cyclic coordinate descent, including its duality-gap
+  stopping rule (the ridge-only and no-penalty gap variants, and the gap check before the first pass),
+  so coefficients and even `n_iter_` match sklearn on the fixtures. `Fit` does not error at `MaxIter`;
+  `Converged()` reports it.
+- `LogisticRegression` minimizes the same strictly convex L2 objective as sklearn (one coefficient row
+  for two classes, softmax with one row per class otherwise) with a small in-package L-BFGS
+  (`lbfgs.go`, strong-Wolfe line search). gonum's `optimize` package was rejected because it pulls
+  `golang.org/x/tools` into `go.mod`, and gonum is meant to stay the only dependency. Defaults are
+  tighter than sklearn's (`Tol` 1e-6, `MaxIter` 1000) because the optimizers differ; the fixtures solve to
+  1e-10 and agree to about 1e-7.
+- Persisted models carry a `Kind` tag: gob matches fields by name, so without it a Lasso file would load
+  as an ElasticNet.
+- Known gaps: no L1/elastic-net penalty for logistic regression, no class or sample weights, no
+  `positive`/`selection="random"` options, dense input only.
 
 ### 3.4 `tree`
 
