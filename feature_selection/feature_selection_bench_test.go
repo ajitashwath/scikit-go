@@ -3,8 +3,8 @@ package feature_selection
 import (
 	"testing"
 
-	"scikit-go/datasets"
-	"scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/linear"
 )
 
 func benchmarkTransform(b *testing.B, nSamples, nFeatures int) {

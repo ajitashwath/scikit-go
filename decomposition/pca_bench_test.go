@@ -3,7 +3,7 @@ package decomposition
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 func benchPCAData(b *testing.B, nSamples, nFeatures int) [][]float64 {
@@ -42,9 +42,9 @@ func benchmarkPCATransform(b *testing.B, nSamples, nFeatures int) {
 	}
 }
 
-func BenchmarkPCA_Fit_Small(b *testing.B)     { benchmarkPCAFit(b, 100, 10) }
-func BenchmarkPCA_Fit_Medium(b *testing.B)    { benchmarkPCAFit(b, 1000, 50) }
-func BenchmarkPCA_Fit_Large(b *testing.B)     { benchmarkPCAFit(b, 10000, 100) }
+func BenchmarkPCA_Fit_Small(b *testing.B)        { benchmarkPCAFit(b, 100, 10) }
+func BenchmarkPCA_Fit_Medium(b *testing.B)       { benchmarkPCAFit(b, 1000, 50) }
+func BenchmarkPCA_Fit_Large(b *testing.B)        { benchmarkPCAFit(b, 10000, 100) }
 func BenchmarkPCA_Transform_Small(b *testing.B)  { benchmarkPCATransform(b, 100, 10) }
 func BenchmarkPCA_Transform_Medium(b *testing.B) { benchmarkPCATransform(b, 1000, 50) }
 func BenchmarkPCA_Transform_Large(b *testing.B)  { benchmarkPCATransform(b, 10000, 100) }

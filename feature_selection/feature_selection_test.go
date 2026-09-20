@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"scikit-go/internal/matutil"
-	"scikit-go/linear"
-	"scikit-go/neighbors"
-	"scikit-go/tree"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/neighbors"
+	"github.com/ajitashwath/scikit-go/tree"
 )
 
 const tol = 1e-8

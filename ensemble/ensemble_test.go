@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"scikit-go/datasets"
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 type predFixture struct {

@@ -3,7 +3,7 @@ package ensemble
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 func benchmarkRegressorFit(b *testing.B, nSamples, nFeatures, nTrees int) {

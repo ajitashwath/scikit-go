@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"scikit-go/datasets"
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // The solver is a port of libsvm's, so on the same problem it should land on

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
-	"scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/linear"
 )
 
 // Compile-time checks that RFE satisfies the core interfaces.

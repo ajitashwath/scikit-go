@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 func TestMinkowskiDistance(t *testing.T) {

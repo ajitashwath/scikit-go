@@ -5,29 +5,29 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // Compile-time checks that KMeans satisfies the core interfaces.
 var (
-	_ core.Estimator  = (*KMeans)(nil)
-	_ core.Predictor  = (*KMeans)(nil)
-	_ core.Clusterer  = (*KMeans)(nil)
-	_ core.Saver      = (*KMeans)(nil)
+	_ core.Estimator = (*KMeans)(nil)
+	_ core.Predictor = (*KMeans)(nil)
+	_ core.Clusterer = (*KMeans)(nil)
+	_ core.Saver     = (*KMeans)(nil)
 )
 
 // kmeansGob is the versioned on-disk payload.
 type kmeansGob struct {
-	Version    int
-	NClusters  int
-	MaxIter    int
-	NInit      int
-	Tol        float64
-	Seed       int64
-	Centers    [][]float64
-	Labels     []float64
-	Inertia    float64
+	Version   int
+	NClusters int
+	MaxIter   int
+	NInit     int
+	Tol       float64
+	Seed      int64
+	Centers   [][]float64
+	Labels    []float64
+	Inertia   float64
 }
 
 const kmeansFormatVersion = 1

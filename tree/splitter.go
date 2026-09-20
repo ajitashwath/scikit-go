@@ -251,7 +251,7 @@ func (sp *splitter) finalizeMSE(samples []int, rec *splitRecord, parentImpurity 
 
 // updateMSE mirrors sklearn's MSE criterion.update direction logic.
 func (sp *splitter) updateMSE(indices []int, n, pos, newPos int, sumL, sumTotal float64) float64 {
-	if (newPos-pos) <= (n-newPos) {
+	if (newPos - pos) <= (n - newPos) {
 		for q := pos; q < newPos; q++ {
 			sumL += sp.y[indices[q]]
 		}

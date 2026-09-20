@@ -3,7 +3,7 @@ package tree
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 // benchmarkFit benchmarks Fit on a deterministic synthetic regression dataset.

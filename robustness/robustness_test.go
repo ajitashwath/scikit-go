@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"scikit-go/cluster"
-	"scikit-go/core"
-	"scikit-go/decomposition"
-	"scikit-go/ensemble"
-	"scikit-go/feature_selection"
-	"scikit-go/linear"
-	"scikit-go/neighbors"
-	"scikit-go/pipeline"
-	"scikit-go/preprocessing"
-	"scikit-go/svm"
-	"scikit-go/tree"
+	"github.com/ajitashwath/scikit-go/cluster"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/decomposition"
+	"github.com/ajitashwath/scikit-go/ensemble"
+	"github.com/ajitashwath/scikit-go/feature_selection"
+	"github.com/ajitashwath/scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/neighbors"
+	"github.com/ajitashwath/scikit-go/pipeline"
+	"github.com/ajitashwath/scikit-go/preprocessing"
+	"github.com/ajitashwath/scikit-go/svm"
+	"github.com/ajitashwath/scikit-go/tree"
 )
 
 type dataset struct {
@@ -141,7 +141,7 @@ func guardPanic(f func()) (panicked string) {
 			stack := strings.Split(string(debug.Stack()), "\n")
 			var frames []string
 			for _, line := range stack {
-				if strings.Contains(line, "scikit-go/") && !strings.Contains(line, "robustness") {
+				if strings.Contains(line, "github.com/ajitashwath/scikit-go/") && !strings.Contains(line, "robustness") {
 					frames = append(frames, strings.TrimSpace(line))
 					if len(frames) == 3 {
 						break
@@ -197,7 +197,9 @@ func TestEstimatorsNeverPanicOnDegenerateData(t *testing.T) {
 // fit calls whichever Fit shape the estimator has.
 func fit(est any, X [][]float64, y []float64) error {
 	switch e := est.(type) {
-	case interface{ Fit([][]float64, []float64) error }:
+	case interface {
+		Fit([][]float64, []float64) error
+	}:
 		return e.Fit(X, y)
 	case interface{ Fit([][]float64) error }:
 		return e.Fit(X)

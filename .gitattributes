@@ -1,0 +1,5 @@
+# Keep Go sources LF on every platform so `gofmt -l` is clean on Windows checkouts too.
+*.go        text eol=lf
+go.mod      text eol=lf
+go.sum      text eol=lf
+*.yml       text eol=lf

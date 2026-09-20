@@ -3,9 +3,9 @@ package pipeline
 import (
 	"testing"
 
-	"scikit-go/datasets"
-	"scikit-go/linear"
-	"scikit-go/preprocessing"
+	"github.com/ajitashwath/scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/preprocessing"
 )
 
 func newBenchPipeline(b *testing.B) *Pipeline {

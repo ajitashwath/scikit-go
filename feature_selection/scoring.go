@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 
 	"gonum.org/v1/gonum/mathext"
 )

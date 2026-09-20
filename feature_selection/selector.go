@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // ErrInvalidSelector is returned when selector hyperparameters or inputs fail

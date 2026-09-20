@@ -14,8 +14,8 @@ import (
 	"strings"
 	"unicode"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // ErrInvalidPipeline is returned when a pipeline is built from unusable steps.

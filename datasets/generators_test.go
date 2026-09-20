@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"scikit-go/linear"
-	"scikit-go/metrics"
+	"github.com/ajitashwath/scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/metrics"
 )
 
 // TestMakeRegression_Shapes checks the deterministic shapes of MakeRegression.

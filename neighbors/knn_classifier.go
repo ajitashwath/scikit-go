@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
-	"scikit-go/metrics"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/metrics"
 )
 
 // Compile-time checks that KNeighborsClassifier satisfies the core interfaces.

@@ -3,7 +3,7 @@ package ensemble
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 func TestForest_AccessorsBeforeAndAfterFit(t *testing.T) {

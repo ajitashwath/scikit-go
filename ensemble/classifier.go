@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
-	"scikit-go/metrics"
-	"scikit-go/tree"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/metrics"
+	"github.com/ajitashwath/scikit-go/tree"
 )
 
 // Compile-time checks that RandomForestClassifier satisfies the core interfaces.

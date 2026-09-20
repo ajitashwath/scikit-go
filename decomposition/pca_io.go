@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // Compile-time checks that PCA satisfies the core interfaces.
@@ -18,13 +18,13 @@ var (
 
 // pcaGob is the versioned on-disk payload.
 type pcaGob struct {
-	Version                  int
-	NComponents              int
-	Components               [][]float64
-	ExplainedVariance        []float64
-	ExplainedVarianceRatio   []float64
-	SingularValues           []float64
-	Mean                     []float64
+	Version                int
+	NComponents            int
+	Components             [][]float64
+	ExplainedVariance      []float64
+	ExplainedVarianceRatio []float64
+	SingularValues         []float64
+	Mean                   []float64
 }
 
 const pcaFormatVersion = 1

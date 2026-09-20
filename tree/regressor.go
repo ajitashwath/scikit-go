@@ -3,9 +3,9 @@ package tree
 import (
 	"fmt"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
-	"scikit-go/metrics"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/metrics"
 )
 
 // Compile-time checks that DecisionTreeRegressor satisfies the core interfaces.

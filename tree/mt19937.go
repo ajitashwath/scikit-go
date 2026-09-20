@@ -1,6 +1,6 @@
 package tree
 
-import "scikit-go/internal/nprandom"
+import "github.com/ajitashwath/scikit-go/internal/nprandom"
 
 // numpy legacy MT19937 (RandomState) seeds sklearn's tree splitter, and the
 // XorShift32 our_rand_r drives the in-tree feature draws.

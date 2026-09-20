@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // svmGob is the versioned on-disk payload shared by SVC and SVR. Only the

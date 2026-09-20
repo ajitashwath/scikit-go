@@ -8,7 +8,7 @@ import (
 	"math"
 	"math/rand"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // ErrInvalidTestSize is returned when TrainTestSplit receives a testSize outside (0, 1).

@@ -6,9 +6,9 @@ import (
 	"math"
 	"os"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 
-	"scikit-go/core"
+	"github.com/ajitashwath/scikit-go/core"
 )
 
 // Compile-time check that StandardScaler satisfies core.Transformer

@@ -11,7 +11,7 @@ import (
 	"math"
 	"sort"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // float64Eps mirrors numpy.finfo("float64").eps, used by AdjustedMutualInfo to

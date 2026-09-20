@@ -20,7 +20,7 @@ coherent scikit-learn sibling without reworking the architecture.
 
 The repository is an early-stage sklearn clone. Existing, working code:
 
-- `core/interfaces.go` — `Estimator`, `Predictor`, `Transformer`, `ContextEstimator`, `Saver`.
+- `core/interfaces.go` — `Estimator`, `Predictor`, `Transformer`, `Classifier`, `Clusterer`, `Saver`.
 - `internal/matutil` — input validation (`ValidateXy`, `ValidateX`, finite/NaN/Inf checks),
   `ToDense`, `DenseToSlice`, and shared sentinel errors (`ErrEmptyInput`, `ErrRaggedInput`, ...).
 - `linear` — OLS via gonum QR on an augmented design matrix; versioned gob `Save`/`Load`.
@@ -182,7 +182,7 @@ CART decision trees — the first "real" learner and the backbone of `ensemble`.
 
 Brute-force k-nearest-neighbors with optional uniform/distance weighting.
 
-- `KNeighborsRegressor{K, Weights: "uniform"|"distance", P (Minkowski exponent), Algorithm: "brute"}`.
+- `KNeighborsRegressor{K, Weights: "uniform"|"distance", P (Minkowski exponent)}` (brute-force search only; there is no `Algorithm` option).
 - `KNeighborsClassifier{...}` (+ `PredictProba`).
 - Public API mirrors `linear.LinearRegression`: `Fit`, `Predict`, `Score`, `Save`/`Load`.
 - Implementation: precompute pairwise distances (`matutil` + gonum `stat` or a dedicated

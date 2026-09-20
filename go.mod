@@ -1,5 +1,5 @@
-module scikit-go
+module github.com/ajitashwath/scikit-go
 
-go 1.25.1
+go 1.24.0
 
 require gonum.org/v1/gonum v0.17.0

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/internal/matutil"
-	"scikit-go/tree"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/tree"
 )
 
 // forestGob is the versioned on-disk payload shared by both forests. Each tree

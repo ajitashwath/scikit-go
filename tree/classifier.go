@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"sort"
 
-	"scikit-go/core"
-	"scikit-go/internal/matutil"
-	"scikit-go/metrics"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/metrics"
 )
 
 // Compile-time checks that DecisionTreeClassifier satisfies the core interfaces.
 var (
-	_ core.Estimator = (*DecisionTreeClassifier)(nil)
-	_ core.Predictor = (*DecisionTreeClassifier)(nil)
+	_ core.Estimator  = (*DecisionTreeClassifier)(nil)
+	_ core.Predictor  = (*DecisionTreeClassifier)(nil)
 	_ core.Classifier = (*DecisionTreeClassifier)(nil)
-	_ core.Saver     = (*DecisionTreeClassifier)(nil)
+	_ core.Saver      = (*DecisionTreeClassifier)(nil)
 )
 
 // DecisionTreeClassifier fits a CART classification tree, mirroring

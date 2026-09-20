@@ -46,9 +46,9 @@ func TestKMeans_AgainstSklearn(t *testing.T) {
 	const inertiaTol = 1e-6
 
 	specs := []struct {
-		key      string
+		key       string
 		nClusters int
-		hasPred  bool
+		hasPred   bool
 	}{
 		{"kmeans_blobs3", 3, true},
 		{"kmeans_blobs5", 5, false},

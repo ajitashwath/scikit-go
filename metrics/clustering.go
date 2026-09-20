@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // AdjustedRandIndex returns the Rand index adjusted for chance, matching

@@ -3,7 +3,7 @@ package svm
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 // SMO is quadratic-to-cubic in the sample count, so the benchmarks stop at a

@@ -11,7 +11,7 @@ import (
 	"sort"
 	"sync"
 
-	"scikit-go/internal/nprandom"
+	"github.com/ajitashwath/scikit-go/internal/nprandom"
 )
 
 // ErrInvalidForest is returned when forest hyperparameters fail validation.

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // treeNodeGob is the on-disk node representation.

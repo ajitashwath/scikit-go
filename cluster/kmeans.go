@@ -8,7 +8,7 @@ import (
 	"math"
 	"math/rand"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // ErrInvalidKMeans is returned when KMeans hyperparameters fail validation.

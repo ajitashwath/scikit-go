@@ -7,7 +7,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 func makeData(n, p int) ([][]float64, []float64) {

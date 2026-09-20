@@ -3,7 +3,7 @@ package cluster
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 func benchKMeans(b *testing.B, nSamples, nFeatures int) {

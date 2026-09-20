@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"os"
 
-	"scikit-go/cluster"
-	"scikit-go/core"
-	"scikit-go/decomposition"
-	"scikit-go/ensemble"
-	"scikit-go/feature_selection"
-	"scikit-go/internal/matutil"
-	"scikit-go/linear"
-	"scikit-go/neighbors"
-	"scikit-go/preprocessing"
-	"scikit-go/svm"
-	"scikit-go/tree"
+	"github.com/ajitashwath/scikit-go/cluster"
+	"github.com/ajitashwath/scikit-go/core"
+	"github.com/ajitashwath/scikit-go/decomposition"
+	"github.com/ajitashwath/scikit-go/ensemble"
+	"github.com/ajitashwath/scikit-go/feature_selection"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/linear"
+	"github.com/ajitashwath/scikit-go/neighbors"
+	"github.com/ajitashwath/scikit-go/preprocessing"
+	"github.com/ajitashwath/scikit-go/svm"
+	"github.com/ajitashwath/scikit-go/tree"
 )
 
 // pipelineGob is the versioned on-disk payload. Every step is stored as the

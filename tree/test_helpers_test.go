@@ -10,14 +10,14 @@ import (
 )
 
 type treeFixture struct {
-	X                 [][]float64 `json:"X"`
-	Y                 []float64   `json:"y"`
-	XTest             [][]float64 `json:"X_test"`
-	PredTrain         []float64   `json:"pred_train"`
-	PredTest          []float64   `json:"pred_test"`
-	ProbaTest         [][]float64 `json:"proba_test"`
-	Classes           []float64   `json:"classes"`
-	FeatureImportances []float64  `json:"feature_importances"`
+	X                  [][]float64 `json:"X"`
+	Y                  []float64   `json:"y"`
+	XTest              [][]float64 `json:"X_test"`
+	PredTrain          []float64   `json:"pred_train"`
+	PredTest           []float64   `json:"pred_test"`
+	ProbaTest          [][]float64 `json:"proba_test"`
+	Classes            []float64   `json:"classes"`
+	FeatureImportances []float64   `json:"feature_importances"`
 }
 
 func loadTreeFixtures(t *testing.T) map[string]treeFixture {

@@ -9,7 +9,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
-	"scikit-go/internal/matutil"
+	"github.com/ajitashwath/scikit-go/internal/matutil"
 )
 
 // ErrInvalidPCA is returned when PCA hyperparameters fail validation.
@@ -21,12 +21,12 @@ var ErrInvalidPCA = errors.New("invalid PCA parameters")
 type PCA struct {
 	NComponents int
 
-	components [][]float64
-	explainedVariance []float64
+	components             [][]float64
+	explainedVariance      []float64
 	explainedVarianceRatio []float64
-	singularValues []float64
-	mean []float64
-	fitted bool
+	singularValues         []float64
+	mean                   []float64
+	fitted                 bool
 }
 
 // NewPCA returns an unfitted PCA with sklearn's default hyperparameters.

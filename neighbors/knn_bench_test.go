@@ -3,7 +3,7 @@ package neighbors
 import (
 	"testing"
 
-	"scikit-go/datasets"
+	"github.com/ajitashwath/scikit-go/datasets"
 )
 
 func benchData(b *testing.B, nSamples, nFeatures int) ([][]float64, []float64, [][]float64) {
